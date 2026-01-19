@@ -1,10 +1,11 @@
 """Models for rally itinerary (schedule, stages, controls) from WRC API"""
 
 from datetime import datetime, date
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field, ConfigDict
+from .base_external_model import WrcExternalApiBaseModel
 
 
-class Control(BaseModel):
+class Control(WrcExternalApiBaseModel):
     """
     A control point in the rally (time control, stage start/finish, etc.)
     """
@@ -47,7 +48,7 @@ class Control(BaseModel):
     bogeyMs: int | None = Field(None, description="Bogey time in milliseconds")
 
 
-class Stage(BaseModel):
+class Stage(WrcExternalApiBaseModel):
     """A special stage in the rally"""
 
     stageId: int = Field(description="Unique identifier for this stage")
@@ -66,7 +67,7 @@ class Stage(BaseModel):
     code: str = Field(description="Stage code (e.g., SS1, SS2)")
 
 
-class ItinerarySection(BaseModel):
+class ItinerarySection(WrcExternalApiBaseModel):
     """A section within a leg (group of stages and controls)"""
 
     model_config = ConfigDict(extra="ignore")
@@ -84,7 +85,7 @@ class ItinerarySection(BaseModel):
     )
 
 
-class ItineraryLeg(BaseModel):
+class ItineraryLeg(WrcExternalApiBaseModel):
     """A leg of the rally (typically one day)"""
 
     model_config = ConfigDict(extra="ignore")
@@ -103,7 +104,7 @@ class ItineraryLeg(BaseModel):
     )
 
 
-class Itinerary(BaseModel):
+class Itinerary(WrcExternalApiBaseModel):
     """
     Complete itinerary for a rally.
     Contains the full schedule with all legs, sections, stages, and controls.

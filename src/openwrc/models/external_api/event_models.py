@@ -1,16 +1,17 @@
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 from pydantic_extra_types.timezone_name import TimeZoneName
+from .base_external_model import WrcExternalApiBaseModel
 
 
-class EventClass(BaseModel):
+class EventClass(WrcExternalApiBaseModel):
     # classes like RC1, RC2, etc.
     eventClassId: int
     eventId: int
     name: str = Field(description="Competition class name (e.g., RC1, RC2)")
 
 
-class RallyMetadata(BaseModel):
+class RallyMetadata(WrcExternalApiBaseModel):
     # events can have more than one rally
     rallyId: int = Field(description="Unique identifier for this rally")
     eventId: int
@@ -22,14 +23,14 @@ class RallyMetadata(BaseModel):
     eventClasses: list[EventClass]
 
 
-class CountryMetadata(BaseModel):
+class CountryMetadata(WrcExternalApiBaseModel):
     countryId: int
     name: str
     iso2: str = Field(min_length=2, max_length=2)
     iso3: str = Field(min_length=3, max_length=3)
 
 
-class EventMetadata(BaseModel):
+class EventMetadata(WrcExternalApiBaseModel):
 
     # default to allowing extra fields from external sources
     model_config = ConfigDict(extra="ignore")

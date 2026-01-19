@@ -3,10 +3,11 @@ Models for rally and stage results from WRC API
 Important Note: this is for the entire rally up to the stage. single stage models will be under stage_models.py
 """
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field, ConfigDict
+from .base_external_model import WrcExternalApiBaseModel
 
 
-class ResultEntry(BaseModel):
+class ResultEntry(WrcExternalApiBaseModel):
     """A single result entry for a driver in a rally or stage"""
 
     model_config = ConfigDict(extra="ignore")

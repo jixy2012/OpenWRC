@@ -1,10 +1,12 @@
 """Models for rally entries (drivers, codrivers, cars) from WRC API"""
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field, ConfigDict
+
+from .base_external_model import WrcExternalApiBaseModel
 from .event_models import CountryMetadata, EventClass
 
 
-class Person(BaseModel):
+class Person(WrcExternalApiBaseModel):
     """Base model for driver or codriver"""
 
     model_config = ConfigDict(extra="ignore")
@@ -40,7 +42,7 @@ class CoDriver(Person):
     pass
 
 
-class Manufacturer(BaseModel):
+class Manufacturer(WrcExternalApiBaseModel):
     """Manufacturer/car brand information"""
 
     manufacturerId: int = Field(description="Unique identifier for manufacturer")
@@ -48,7 +50,7 @@ class Manufacturer(BaseModel):
     logoFilename: str | None = Field(None, description="Logo filename reference")
 
 
-class Entrant(BaseModel):
+class Entrant(WrcExternalApiBaseModel):
     """Team/entrant information"""
 
     entrantId: int = Field(description="Unique identifier for the team")
@@ -56,14 +58,14 @@ class Entrant(BaseModel):
     logoFilename: str | None = Field(None, description="Logo filename reference")
 
 
-class Group(BaseModel):
+class Group(WrcExternalApiBaseModel):
     """Competition group (Rally1, Rally2, etc.)"""
 
     groupId: int = Field(description="Unique identifier for this group")
     name: str = Field(description="Group name (e.g., Rally1, Rally2)")
 
 
-class Entry(BaseModel):
+class Entry(WrcExternalApiBaseModel):
     """
     Complete entry for a driver/car/team combination in an event.
     This is the main unit that competes in rallies.

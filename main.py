@@ -1,9 +1,9 @@
-from src.openwrc.clients.event_client import WrcApiClient
+from src.openwrc.clients.wrc_api_client import WrcApiClient
 
 
 def main():
     client = WrcApiClient()
-    data = client.get_event_metadata(555)
+    data = client.get_event_itineraries(555, 1343)
 
     print("Hello from openwrc!")
     print(f"\n\n{data.model_dump_json(indent=2)}")

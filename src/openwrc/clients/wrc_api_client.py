@@ -1,7 +1,7 @@
 from typing import Optional, Type, TypeVar
 import httpx
 from pydantic import BaseModel
-from openwrc.models.external_api import (
+from src.openwrc.models.external_api import (
     Itinerary,
     EventMetadata,
     RallyEntries,
