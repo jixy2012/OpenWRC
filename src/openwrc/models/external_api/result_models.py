@@ -3,6 +3,7 @@ Models for rally and stage results from WRC API
 Important Note: this is for the entire rally up to the stage. single stage models will be under stage_models.py
 """
 
+from typing import Optional
 from pydantic import Field
 from .base_external_model import WrcExternalApiBaseModel
 
@@ -10,12 +11,15 @@ from .base_external_model import WrcExternalApiBaseModel
 class BaseEntry(WrcExternalApiBaseModel):
     entryId: int = Field(description="Entry ID for this driver/car combination")
     # Position and time differences
-    position: int = Field(description="Current position in standings")
-    diffFirstMs: int = Field(
-        description="Overall time difference to leader in milliseconds"
+    position: Optional[int] = Field(
+        default=None, description="Current position in standings"
     )
-    diffPrevMs: int = Field(
-        description="Overall time difference to previous position in milliseconds"
+    diffFirstMs: Optional[int] = Field(
+        default=None, description="Overall time difference to leader in milliseconds"
+    )
+    diffPrevMs: Optional[int] = Field(
+        default=None,
+        description="Overall time difference to previous position in milliseconds",
     )
 
 
@@ -28,11 +32,13 @@ class ResultEntry(BaseEntry):
     totalTimeMs: int = Field(description="Total time (stage + penalty) in milliseconds")
 
 
-class StageTimeEntry(WrcExternalApiBaseModel):
+class StageTimeEntry(BaseEntry):
     """A single stage time entry for a driver's performance on a specific stage"""
 
     stageId: int = Field(description="Stage ID")
-    elapsedDurationMs: int = Field(description="Elapsed duration in milliseconds")
+    elapsedDurationMs: Optional[int] = Field(
+        default=None, description="Elapsed duration in milliseconds"
+    )
     status: str = Field(
         description="Completion status (e.g., 'Completed')"
     )  # TODO: make enum

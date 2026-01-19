@@ -55,6 +55,6 @@ class RallyResultService(BaseService):
         stage = self.event_service.get_rally_stage_by_order(
             event_id=event_id, rally_id=rally_id, order=order
         )
-        return self.external_api_client.get_event_stage_results(
+        return self.external_api_client.get_event_stage_time_results(
             event_id=event_id, stage_id=stage.stageId, rally_id=rally_id
         )

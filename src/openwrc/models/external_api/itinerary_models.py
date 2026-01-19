@@ -110,8 +110,9 @@ class Itinerary(WrcExternalApiBaseModel):
     Contains the full schedule with all legs, sections, stages, and controls.
     """
 
-    model_config = ConfigDict(extra="ignore")
-
     itineraryLegs: list[ItineraryLeg] = Field(
         default_factory=list, description="All legs (days) of the rally"
     )
+
+    itineraryId: int
+    eventId: int

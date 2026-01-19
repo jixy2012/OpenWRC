@@ -1,6 +1,6 @@
 from typing import Optional, Type, TypeVar
 import httpx
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter
 from openwrc.models.external_api import (
     Itinerary,
     EventMetadata,
@@ -31,7 +31,8 @@ class WrcApiClient:
         response = self.client.get(external_path, params=params)
         response.raise_for_status()
         data = response.json()
-        return model.model_validate(data) if model else data
+
+        return TypeAdapter[T](model).validate_python(data) if model else data
 
     def get_event_metadata(self, event_id: int) -> EventMetadata:
         """

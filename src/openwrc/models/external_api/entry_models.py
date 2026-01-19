@@ -1,5 +1,6 @@
 """Models for rally entries (drivers, codrivers, cars) from WRC API"""
 
+from typing import Optional
 from pydantic import Field, ConfigDict
 
 from .base_external_model import WrcExternalApiBaseModel
@@ -15,9 +16,9 @@ class Person(WrcExternalApiBaseModel):
     countryId: int
     country: CountryMetadata
 
-    seasonId: int | None = None
-    eventId: int | None = None
-    externalId: str | None = None
+    seasonId: Optional[int] = Field(default=None)
+    eventId: Optional[int] = Field(default=None)
+    externalId: Optional[str] = Field(default=None)
 
     # Name fields
     firstName: str
@@ -26,8 +27,8 @@ class Person(WrcExternalApiBaseModel):
     fullName: str = Field(description="Full display name")
     code: str = Field(description="Three-letter code (e.g., OGI)")
 
-    licenseNumber: str | None = None
-    state: str = ""
+    licenseNumber: Optional[str] = Field(default=None)
+    state: Optional[str] = Field(default="")
 
 
 class Driver(Person):
@@ -47,7 +48,9 @@ class Manufacturer(WrcExternalApiBaseModel):
 
     manufacturerId: int = Field(description="Unique identifier for manufacturer")
     name: str = Field(description="Manufacturer name (e.g., Toyota, Hyundai)")
-    logoFilename: str | None = Field(None, description="Logo filename reference")
+    logoFilename: Optional[str] = Field(
+        default=None, description="Logo filename reference"
+    )
 
 
 class Entrant(WrcExternalApiBaseModel):
@@ -55,7 +58,9 @@ class Entrant(WrcExternalApiBaseModel):
 
     entrantId: int = Field(description="Unique identifier for the team")
     name: str = Field(description="Team name (e.g., TOYOTA GAZOO RACING WRT)")
-    logoFilename: str | None = Field(None, description="Logo filename reference")
+    logoFilename: Optional[str] = Field(
+        default=None, description="Logo filename reference"
+    )
 
 
 class Group(WrcExternalApiBaseModel):
@@ -106,8 +111,8 @@ class Entry(WrcExternalApiBaseModel):
     )
 
     # Optional fields
-    pbf: str | None = None
-    drive: str | None = None
+    pbf: Optional[str] = Field(default=None)
+    drive: Optional[str] = Field(default=None)
     tags: list[str] = Field(default_factory=list)
 
 
