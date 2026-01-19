@@ -1,0 +1,87 @@
+{
+    "rallies": [
+        {
+            "rallyId": 603,
+            "eventId": 555,
+            "itineraryId": 1343,
+            "name": "Rally",
+            "isMain": true,
+            "eventClasses": [
+                {
+                    "eventClassId": 3550,
+                    "eventId": 555,
+                    "name": "RC1"
+                },
+                {
+                    "eventClassId": 3551,
+                    "eventId": 555,
+                    "name": "RC2"
+                },
+                {
+                    "eventClassId": 3552,
+                    "eventId": 555,
+                    "name": "RC3"
+                },
+                {
+                    "eventClassId": 3553,
+                    "eventId": 555,
+                    "name": "RC4"
+                }
+            ]
+        }
+    ],
+    "eventClasses": [
+        {
+            "eventClassId": 3550,
+            "eventId": 555,
+            "name": "RC1"
+        },
+        {
+            "eventClassId": 3551,
+            "eventId": 555,
+            "name": "RC2"
+        },
+        {
+            "eventClassId": 3552,
+            "eventId": 555,
+            "name": "RC3"
+        },
+        {
+            "eventClassId": 3553,
+            "eventId": 555,
+            "name": "RC4"
+        }
+    ],
+    "eventId": 555,
+    "countryId": 195,
+    "eventProfileId": 2,
+    "country": {
+        "countryId": 195,
+        "name": "Saudi Arabia",
+        "iso2": "SA",
+        "iso3": "SAU"
+    },
+    "name": "Rally Saudi Arabia",
+    "slug": "2025-wrc-saudi-arabia",
+    "location": "Jeddah",
+    "startDate": "2025-11-26",
+    "finishDate": "2025-11-29",
+    "timeZoneId": "Asia/Qatar",
+    "timeZoneName": "(UTC+03:00) Arabian Standard Time (Qatar)",
+    "timeZoneOffset": 180,
+    "surfaces": "Gravel",
+    "organiserUrl": "https://rally-saudiarabia.com/",
+    "categories": null,
+    "mode": "Rally",
+    "trackingEventId": 4221,
+    "clerkOfTheCourse": "Samer Hijazi",
+    "stewards": "Mazen Al-Hilli                     Edoardo Delleani                         Ahmad Jan",
+    "templateFilename": "results-report-templates/5ab61c3a-a647-4f87-b038-508c0ff5da56.dotx",
+    "locked": false,
+    "public": false,
+    "applyJumpStarts": true,
+    "displayFiaColumns": true,
+    "roundShakedownTimes": true,
+    "shakedownCount": 1,
+    "displayLicenseNumber": false
+}

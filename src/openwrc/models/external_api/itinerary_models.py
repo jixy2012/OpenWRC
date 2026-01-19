@@ -1,0 +1,116 @@
+"""Models for rally itinerary (schedule, stages, controls) from WRC API"""
+
+from datetime import datetime, date
+from pydantic import BaseModel, Field, ConfigDict
+
+
+class Control(BaseModel):
+    """
+    A control point in the rally (time control, stage start/finish, etc.)
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    controlId: int = Field(description="Unique identifier for this control")
+    eventId: int
+    stageId: int | None = Field(None, description="Associated stage ID if applicable")
+
+    # Control details
+    type: str = Field(
+        description="Control type (TimeControl, StageStart, FlyingFinish, etc.)"
+    )
+    code: str = Field(description="Control code (TC1, SS1, SF1, etc.)")
+    location: str = Field(description="Control location name")
+    status: str = Field(description="Control status (Scheduled, Completed, Cancelled)")
+
+    # Timing details
+    timingPrecision: str = Field(description="Timing precision (Minute, Tenth, etc.)")
+    distance: float | None = Field(None, description="Distance to this control in km")
+    targetDurationMs: int | None = Field(
+        None, description="Target duration in milliseconds"
+    )
+
+    firstCarDueDateTime: datetime | None = Field(
+        None, description="When first car is due (UTC)"
+    )
+    firstCarDueDateTimeLocal: datetime | None = Field(
+        None, description="When first car is due (local time with timezone)"
+    )
+
+    # Penalty and rounding rules
+    controlPenalties: str = Field(description="Penalty type (All, Late, None, etc.)")
+    roundingPolicy: str = Field(
+        description="Rounding policy (NoRounding, RoundToClosestMinute, etc.)"
+    )  # TODO: make into enum
+
+    locked: bool = Field(description="Whether control is locked")
+    bogeyMs: int | None = Field(None, description="Bogey time in milliseconds")
+
+
+class Stage(BaseModel):
+    """A special stage in the rally"""
+
+    stageId: int = Field(description="Unique identifier for this stage")
+    eventId: int
+    number: int = Field(description="Stage number (e.g., 1, 2, 3)")
+    name: str = Field(description="Stage name")
+    distance: float = Field(description="Stage distance in km")
+    status: str = Field(description="Stage status (Scheduled, Completed, Cancelled)")
+    stageType: str = Field(
+        description="Type of stage (e.g., HeadToHeadSuperSpecialStage, StandardStage)"
+    )  # TODO: make into enum
+    timingPrecision: str = Field(
+        description="Timing precision (Tenth, Hundredth)"
+    )  # TODO: make into enum
+    locked: bool = Field(description="Whether stage is locked")
+    code: str = Field(description="Stage code (e.g., SS1, SS2)")
+
+
+class ItinerarySection(BaseModel):
+    """A section within a leg (group of stages and controls)"""
+
+    model_config = ConfigDict(extra="ignore")
+
+    itinerarySectionId: int = Field(description="Unique identifier for this section")
+    itineraryLegId: int = Field(description="Parent leg ID")
+    order: int = Field(description="Section order within leg")
+    name: str = Field(description="Section name")
+
+    controls: list[Control] = Field(
+        default_factory=list, description="All control points in this section"
+    )
+    stages: list[Stage] = Field(
+        default_factory=list, description="All stages in this section"
+    )
+
+
+class ItineraryLeg(BaseModel):
+    """A leg of the rally (typically one day)"""
+
+    model_config = ConfigDict(extra="ignore")
+
+    itineraryLegId: int = Field(description="Unique identifier for this leg")
+    itineraryId: int = Field(description="Parent itinerary ID")
+    startListId: int | None = Field(None, description="Start list ID for this leg")
+
+    name: str = Field(description="Leg name (e.g., 'Wednesday 26th November')")
+    legDate: date = Field(description="Date of this leg")
+    order: int = Field(description="Leg order (1, 2, 3, etc.)")
+    status: str = Field(description="Leg status (Scheduled, Completed, Cancelled)")
+
+    itinerarySections: list[ItinerarySection] = Field(
+        default_factory=list, description="All sections in this leg"
+    )
+
+
+class Itinerary(BaseModel):
+    """
+    Complete itinerary for a rally.
+    Contains the full schedule with all legs, sections, stages, and controls.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    itineraryLegs: list[ItineraryLeg] = Field(
+        default_factory=list, description="All legs (days) of the rally"
+    )
