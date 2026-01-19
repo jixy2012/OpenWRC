@@ -1,3 +1,11 @@
-from .event_exceptions import RallyNotFoundException
+from .event_exceptions import (
+    RallyNotFoundException,
+    StageIndexOutOfRangeException,
+    StageNotFoundException,
+)
 
-__all__ = ["RallyNotFoundException"]
+__all__ = [
+    "RallyNotFoundException",
+    "StageIndexOutOfRangeException",
+    "StageNotFoundException",
+]
