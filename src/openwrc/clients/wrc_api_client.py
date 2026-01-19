@@ -1,12 +1,13 @@
 from typing import Optional, Type, TypeVar
 import httpx
 from pydantic import BaseModel
-from src.openwrc.models.external_api import (
+from openwrc.models.external_api import (
     Itinerary,
     EventMetadata,
     RallyEntries,
     StageResults,
     RallyResults,
+    StageTimeResults,
 )
 
 URL_BASE = "https://p-p.redbull.com/rb-wrccom-lintegration-yv-prod/api/events"
@@ -103,4 +104,23 @@ class WrcApiClient:
             f"/{event_id}/stages/{stage_id}/results.json",
             params={"rallyId": rally_id},
             model=StageResults,
+        )
+
+    def get_event_stage_time_results(
+        self, event_id: int, stage_id: int, rally_id: int
+    ) -> StageTimeResults:
+        """example: 555/stages/10281/stagetimes.json?rallyId=603
+
+        Args:
+            event_id (int)
+            stage_id (int)
+            rally_id (int)
+
+        Returns:
+            StageTimeResults
+        """
+        return self._get(
+            f"/{event_id}/stages/{stage_id}/stagetimes.json",
+            params={"rallyId": rally_id},
+            model=StageTimeResults,
         )

@@ -1,12 +1,13 @@
-from src.openwrc.clients.wrc_api_client import WrcApiClient
+from openwrc.services.event_service import EventInfoService
 
 
 def main():
-    client = WrcApiClient()
-    data = client.get_event_itineraries(555, 1343)
+    client = EventInfoService()
+    data = client.get_rally_stages(555, 603)
 
     print("Hello from openwrc!")
-    print(f"\n\n{data.model_dump_json(indent=2)}")
+    for stage in data:
+        print(f"\n\n{stage.model_dump_json(indent=2)}")
 
 
 if __name__ == "__main__":
