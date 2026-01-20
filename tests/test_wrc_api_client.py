@@ -30,7 +30,7 @@ def test_get_event_metadata(client: WrcApiClient) -> None:
     result = client.get_event_metadata(EVENT_ID)
 
     assert isinstance(result, EventMetadata)
-    assert result.eventId == EVENT_ID
+    assert result.event_id == EVENT_ID
     assert len(result.rallies) > 0
     print(f"✓ Event metadata: {result.name}")
 
@@ -40,9 +40,9 @@ def test_get_event_itineraries(client: WrcApiClient) -> None:
     result = client.get_event_itineraries(EVENT_ID, ITINERARY_ID)
 
     assert isinstance(result, Itinerary)
-    assert result.itineraryId == ITINERARY_ID
-    assert len(result.itineraryLegs) > 0
-    print(f"✓ Itinerary: {len(result.itineraryLegs)} legs")
+    assert result.itinerary_id == ITINERARY_ID
+    assert len(result.itinerary_legs) > 0
+    print(f"✓ Itinerary: {len(result.itinerary_legs)} legs")
 
 
 def test_get_rally_entries(client: WrcApiClient) -> None:
@@ -62,9 +62,9 @@ def test_get_rally_results(client: WrcApiClient) -> None:
     assert len(result) > 0
     # Verify each entry has the required fields
     for entry in result:
-        assert hasattr(entry, "entryId")
-        assert hasattr(entry, "stageTimeMs")
-        assert hasattr(entry, "totalTimeMs")
+        assert hasattr(entry, "entry_id")
+        assert hasattr(entry, "stage_time_ms")
+        assert hasattr(entry, "total_time_ms")
     print(f"✓ Rally results: {len(result)} entries")
 
 
@@ -76,8 +76,8 @@ def test_get_event_stage_results(client: WrcApiClient) -> None:
     assert len(result) > 0
     # Verify each entry has the required fields
     for entry in result:
-        assert hasattr(entry, "entryId")
-        assert hasattr(entry, "stageTimeMs")
+        assert hasattr(entry, "entry_id")
+        assert hasattr(entry, "stage_time_ms")
     print(f"✓ Stage results: {len(result)} entries")
 
 
@@ -89,9 +89,9 @@ def test_get_event_stage_time_results(client: WrcApiClient) -> None:
     assert len(result) > 0
     # Verify each entry has the required fields
     for entry in result:
-        assert hasattr(entry, "stageId")
+        assert hasattr(entry, "stage_id")
         assert hasattr(entry, "status")
-        assert entry.stageId == STAGE_ID
+        assert entry.stage_id == STAGE_ID
     print(f"✓ Stage time results: {len(result)} entries")
 
 
@@ -101,11 +101,11 @@ def test_all_endpoints_integration(client: WrcApiClient) -> None:
 
     # 1. Get event metadata
     event = client.get_event_metadata(EVENT_ID)
-    print(f"1. Event: {event.name} ({event.eventId})")
+    print(f"1. Event: {event.name} ({event.event_id})")
 
     # 2. Get itinerary
     itinerary = client.get_event_itineraries(EVENT_ID, ITINERARY_ID)
-    print(f"2. Itinerary: {len(itinerary.itineraryLegs)} legs")
+    print(f"2. Itinerary: {len(itinerary.itinerary_legs)} legs")
 
     # 3. Get rally entries
     entries = client.get_rally_entries(EVENT_ID, RALLY_ID)

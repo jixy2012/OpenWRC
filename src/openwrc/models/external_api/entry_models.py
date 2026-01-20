@@ -12,22 +12,22 @@ class Person(WrcExternalApiBaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    personId: int = Field(description="Unique identifier for this person")
-    countryId: int
+    person_id: int = Field(description="Unique identifier for this person")
+    country_id: int
     country: CountryMetadata
 
-    seasonId: Optional[int] = Field(default=None)
-    eventId: Optional[int] = Field(default=None)
-    externalId: Optional[str] = Field(default=None)
+    season_id: Optional[int] = Field(default=None)
+    event_id: Optional[int] = Field(default=None)
+    external_id: Optional[str] = Field(default=None)
 
     # Name fields
-    firstName: str
-    lastName: str
-    abbvName: str = Field(description="Abbreviated name (e.g., S. OGIER)")
-    fullName: str = Field(description="Full display name")
+    first_name: str
+    last_name: str
+    abbv_name: str = Field(description="Abbreviated name (e.g., S. OGIER)")
+    full_name: str = Field(description="Full display name")
     code: str = Field(description="Three-letter code (e.g., OGI)")
 
-    licenseNumber: Optional[str] = Field(default=None)
+    license_number: Optional[str] = Field(default=None)
     state: Optional[str] = Field(default="")
 
 
@@ -46,9 +46,9 @@ class CoDriver(Person):
 class Manufacturer(WrcExternalApiBaseModel):
     """Manufacturer/car brand information"""
 
-    manufacturerId: int = Field(description="Unique identifier for manufacturer")
+    manufacturer_id: int = Field(description="Unique identifier for manufacturer")
     name: str = Field(description="Manufacturer name (e.g., Toyota, Hyundai)")
-    logoFilename: Optional[str] = Field(
+    logo_filename: Optional[str] = Field(
         default=None, description="Logo filename reference"
     )
 
@@ -56,9 +56,9 @@ class Manufacturer(WrcExternalApiBaseModel):
 class Entrant(WrcExternalApiBaseModel):
     """Team/entrant information"""
 
-    entrantId: int = Field(description="Unique identifier for the team")
+    entrant_id: int = Field(description="Unique identifier for the team")
     name: str = Field(description="Team name (e.g., TOYOTA GAZOO RACING WRT)")
-    logoFilename: Optional[str] = Field(
+    logo_filename: Optional[str] = Field(
         default=None, description="Logo filename reference"
     )
 
@@ -66,7 +66,7 @@ class Entrant(WrcExternalApiBaseModel):
 class Group(WrcExternalApiBaseModel):
     """Competition group (Rally1, Rally2, etc.)"""
 
-    groupId: int = Field(description="Unique identifier for this group")
+    group_id: int = Field(description="Unique identifier for this group")
     name: str = Field(description="Group name (e.g., Rally1, Rally2)")
 
 
@@ -79,8 +79,8 @@ class Entry(WrcExternalApiBaseModel):
     model_config = ConfigDict(extra="ignore")
 
     # Main identifiers
-    entryId: int = Field(description="Unique identifier for this entry")
-    eventId: int
+    entry_id: int = Field(description="Unique identifier for this entry")
+    event_id: int
 
     # Related entities
     driver: Driver
@@ -88,25 +88,25 @@ class Entry(WrcExternalApiBaseModel):
     manufacturer: Manufacturer
     entrant: Entrant
     group: Group
-    eventClasses: list[EventClass]
+    event_classes: list[EventClass]
 
     # IDs for relationships
-    driverId: int
-    codriverId: int
-    manufacturerId: int
-    entrantId: int
-    groupId: int
+    driver_id: int
+    codriver_id: int
+    manufacturer_id: int
+    entrant_id: int
+    group_id: int
 
     # Entry details
     identifier: str = Field(description="Car number as string")
-    vehicleModel: str = Field(description="Specific car model (e.g., GR Yaris Rally1)")
-    entryListOrder: int = Field(description="Order in entry list")
+    vehicle_model: str = Field(description="Specific car model (e.g., GR Yaris Rally1)")
+    entry_list_order: int = Field(description="Order in entry list")
 
     # Competition details
     eligibility: str = Field(description="Eligibility code (e.g., M for Manufacturer)")
     priority: str = Field(description="Priority classification (e.g., P1)")
     status: str = Field(description="Entry status (e.g., Entry, Retired)")
-    tyreManufacturer: str = Field(
+    tyre_manufacturer: str = Field(
         description="Tyre manufacturer name, seems to not be populated from api"
     )
 

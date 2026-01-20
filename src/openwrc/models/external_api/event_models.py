@@ -6,25 +6,25 @@ from .base_external_model import WrcExternalApiBaseModel
 
 class EventClass(WrcExternalApiBaseModel):
     # classes like RC1, RC2, etc.
-    eventClassId: int
-    eventId: int
+    event_class_id: int
+    event_id: int
     name: str = Field(description="Competition class name (e.g., RC1, RC2)")
 
 
 class RallyMetadata(WrcExternalApiBaseModel):
     # events can have more than one rally
-    rallyId: int = Field(description="Unique identifier for this rally")
-    eventId: int
+    rally_id: int = Field(description="Unique identifier for this rally")
+    event_id: int
 
     # each rally has its own itinerary
-    itineraryId: int
+    itinerary_id: int
     name: str
-    isMain: bool
-    eventClasses: list[EventClass]
+    is_main: bool
+    event_classes: list[EventClass]
 
 
 class CountryMetadata(WrcExternalApiBaseModel):
-    countryId: int
+    country_id: int
     name: str
     iso2: str = Field(min_length=2, max_length=2)
     iso3: str = Field(min_length=3, max_length=3)
@@ -36,24 +36,24 @@ class EventMetadata(WrcExternalApiBaseModel):
     model_config = ConfigDict(extra="ignore")
 
     rallies: list[RallyMetadata]
-    eventClasses: list[EventClass] = Field(
+    event_classes: list[EventClass] = Field(
         description="All competition classes in this event"
     )
-    eventId: int
+    event_id: int
 
-    countryId: int
+    country_id: int
     country: CountryMetadata
     name: str = Field(description="Official event name")
 
     slug: str = Field(description="uri slug maybe useful for some requests")
     location: str
-    startDate: datetime
-    finishDate: datetime
-    timeZoneId: TimeZoneName = Field(
+    start_date: datetime
+    finish_date: datetime
+    time_zone_id: TimeZoneName = Field(
         description="IANA timezone identifier for event location"
     )
-    timeZoneName: str
+    time_zone_name: str
 
     surfaces: str  # TODO: enum it
 
-    shakedownCount: int = Field(description="Number of shakedown stages")
+    shakedown_count: int = Field(description="Number of shakedown stages")

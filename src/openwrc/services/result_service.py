@@ -1,4 +1,9 @@
+import asyncio
 from openwrc.models.external_api import RallyResults, StageResults, StageTimeResults
+from openwrc.models.services.result_models import (
+    CumulativeRallyResultsByStage,
+    CumulativeStageResults,
+)
 from openwrc.services.base_service import BaseService
 from openwrc.services.event_service import EventInfoService
 
@@ -15,7 +20,7 @@ class RallyResultService(BaseService):
             event_id=event_id, rally_id=rally_id
         )
 
-    def get_overall_stage_results_by_id(
+    async def get_cumulative_stage_results_by_id(
         self, event_id: int, rally_id: int, stage_id: int
     ) -> StageResults:
         """overall results for the entire rally up until that stage
@@ -28,11 +33,11 @@ class RallyResultService(BaseService):
         Returns:
             StageResults: _description_
         """
-        return self.external_api_client.get_event_stage_results(
+        return await self.external_api_client.get_event_stage_results(
             event_id=event_id, rally_id=rally_id, stage_id=stage_id
         )
 
-    def get_single_stage_results_by_id(
+    async def get_single_stage_results_by_id(
         self, event_id: int, rally_id, stage_id: int
     ) -> StageTimeResults:
         """results for a single stage_summary_
@@ -45,16 +50,40 @@ class RallyResultService(BaseService):
         Returns:
             StageTimeResults
         """
-        return self.external_api_client.get_event_stage_time_results(
+        return await self.external_api_client.get_event_stage_time_results(
             event_id=event_id, rally_id=rally_id, stage_id=stage_id
         )
 
-    def get_single_stage_results_by_order(
+    async def get_single_stage_results_by_order(
         self, event_id: int, rally_id: int, order: int
     ) -> StageTimeResults:
-        stage = self.event_service.get_rally_stage_by_order(
+        stage = await self.event_service.get_rally_stage_by_order(
             event_id=event_id, rally_id=rally_id, order=order
         )
-        return self.external_api_client.get_event_stage_time_results(
-            event_id=event_id, stage_id=stage.stageId, rally_id=rally_id
+        return await self.external_api_client.get_event_stage_time_results(
+            event_id=event_id, stage_id=stage.stage_id, rally_id=rally_id
+        )
+
+    async def get_cumulative_rally_results_by_stage(
+        self, event_id: int, rally_id: int
+    ) -> CumulativeRallyResultsByStage:
+        stages = await self.event_service.get_rally_stages(
+            event_id=event_id, rally_id=rally_id
+        )
+
+        async def getCumulativeStageResult(stage_id: int):
+            return CumulativeStageResults(
+                stage_id=stage_id,
+                results=await self.get_cumulative_stage_results_by_id(
+                    event_id=event_id, rally_id=rally_id, stage_id=stage_id
+                ),
+            )
+
+        futures = [
+            getCumulativeStageResult(stage_id=stage.stage_id) for stage in stages
+        ]
+        return CumulativeRallyResultsByStage(
+            rally_id=rally_id,
+            event_id=event_id,
+            cumulative_stage_results=await asyncio.gather(*futures),
         )

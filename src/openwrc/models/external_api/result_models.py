@@ -9,15 +9,15 @@ from .base_external_model import WrcExternalApiBaseModel
 
 
 class BaseEntry(WrcExternalApiBaseModel):
-    entryId: int = Field(description="Entry ID for this driver/car combination")
+    entry_id: int = Field(description="Entry ID for this driver/car combination")
     # Position and time differences
     position: Optional[int] = Field(
         default=None, description="Current position in standings"
     )
-    diffFirstMs: Optional[int] = Field(
+    diff_first_ms: Optional[int] = Field(
         default=None, description="Overall time difference to leader in milliseconds"
     )
-    diffPrevMs: Optional[int] = Field(
+    diff_prev_ms: Optional[int] = Field(
         default=None,
         description="Overall time difference to previous position in milliseconds",
     )
@@ -27,16 +27,18 @@ class ResultEntry(BaseEntry):
     """A single result entry for a driver in a rally or stage"""
 
     # Time data in milliseconds (easier to work with)
-    stageTimeMs: int = Field(description="Stage time in milliseconds")
-    penaltyTimeMs: int = Field(description="Penalty time in milliseconds")
-    totalTimeMs: int = Field(description="Total time (stage + penalty) in milliseconds")
+    stage_time_ms: int = Field(description="Stage time in milliseconds")
+    penalty_time_ms: int = Field(description="Penalty time in milliseconds")
+    total_time_ms: int = Field(
+        description="Total time (stage + penalty) in milliseconds"
+    )
 
 
 class StageTimeEntry(BaseEntry):
     """A single stage time entry for a driver's performance on a specific stage"""
 
-    stageId: int = Field(description="Stage ID")
-    elapsedDurationMs: Optional[int] = Field(
+    stage_id: int = Field(description="Stage ID")
+    elapsed_duration_ms: Optional[int] = Field(
         default=None, description="Elapsed duration in milliseconds"
     )
     status: str = Field(
