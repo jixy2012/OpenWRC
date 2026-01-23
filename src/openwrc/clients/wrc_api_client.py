@@ -5,6 +5,7 @@ from openwrc.models.external_api import (
     Itinerary,
     EventMetadata,
     RallyEntries,
+    SplitTimeResults,
     StageResults,
     RallyResults,
     StageTimeResults,
@@ -158,6 +159,29 @@ class WrcApiClient:
             f"/{event_id}/shakedowntimes.json",
             params={"shakedownNumber": shakedown_number},
             model=ShakedownTimeResults,
+        )
+
+    async def get_rally_stage_split_time_results(
+        self,
+        event_id: int,
+        rally_id: int,
+        stage_id: int,
+    ) -> SplitTimeResults:
+        """example: 635/stages/10401/splittimes.json?rallyId=703
+
+
+        Args:
+            event_id (int): _description_
+            rally_id (int): _description_
+            stage_id (int): _description_
+
+        Returns:
+            SplitTimeResults: _description_
+        """
+        return await self._get(
+            f"/{event_id}/stages/{stage_id}/splittimes.json",
+            params={"rallyId": rally_id},
+            model=SplitTimeResults,
         )
 
     async def get_event_start_list(

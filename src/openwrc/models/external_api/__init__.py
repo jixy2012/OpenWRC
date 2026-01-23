@@ -29,6 +29,8 @@ from .result_models import (
     StageTimeEntry,
     StageTimeResults,
     ShakedownTimeResults,
+    SplitTimeEntry,
+    SplitTimeResults,
 )
 
 # Itinerary models
@@ -63,6 +65,8 @@ __all__ = [
     "StageTimeEntry",
     "StageTimeResults",
     "ShakedownTimeResults",
+    "SplitTimeEntry",
+    "SplitTimeResults",
     # Itinerary models
     "Control",
     "Stage",

@@ -3,6 +3,7 @@ Models for rally and stage results from WRC API
 Important Note: this is for the entire rally up to the stage. single stage models will be under stage_models.py
 """
 
+from datetime import datetime
 from typing import Optional
 from pydantic import Field
 from .base_external_model import WrcExternalApiBaseModel
@@ -60,8 +61,27 @@ class ShakedownTimeEntry(WrcExternalApiBaseModel):
     run_duration_ms: int = Field(description="Run duration in milliseconds")
 
 
+class SplitTimeEntry(WrcExternalApiBaseModel):
+    """A single split time entry for an entry at a split point."""
+
+    start_date_time: datetime = Field(description="Start time in UTC")
+    stage_time_duration_ms: int = Field(
+        description="Stage time duration in milliseconds"
+    )
+    split_point_time_id: int = Field(
+        description="Unique identifier for this split point time"
+    )
+    split_point_id: int = Field(description="Split point ID")
+    entry_id: int = Field(description="Entry ID for this driver/car combination")
+    elapsed_duration_ms: int = Field(
+        description="Elapsed duration in milliseconds at split point"
+    )
+    split_date_time: datetime = Field(description="Split time timestamp in UTC")
+
+
 # Type aliases for clarity
 RallyResults = list[ResultEntry]
 StageResults = list[ResultEntry]
 StageTimeResults = list[StageTimeEntry]
 ShakedownTimeResults = list[ShakedownTimeEntry]
+SplitTimeResults = list[SplitTimeEntry]
