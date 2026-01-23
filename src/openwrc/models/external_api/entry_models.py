@@ -1,5 +1,6 @@
 """Models for rally entries (drivers, codrivers, cars) from WRC API"""
 
+from datetime import datetime
 from typing import Optional
 from pydantic import Field, ConfigDict
 
@@ -118,3 +119,27 @@ class Entry(WrcExternalApiBaseModel):
 
 # Type alias for list of entries
 RallyEntries = list[Entry]
+
+
+class StartListItem(WrcExternalApiBaseModel):
+    """A single entry in a start list with start time and order"""
+
+    start_list_item_id: int = Field(
+        description="Unique identifier for this start list item"
+    )
+    start_list_id: int = Field(description="Parent start list ID")
+    entry_id: int = Field(description="Entry ID for this driver/car combination")
+    start_date_time: datetime = Field(description="Start time in UTC")
+    order: int = Field(description="Start order position")
+
+
+class StartList(WrcExternalApiBaseModel):
+    """Complete start list for a leg"""
+
+    start_list_items: list[StartListItem] = Field(
+        default_factory=list, description="All start list entries"
+    )
+    start_list_id: int = Field(description="Unique identifier for this start list")
+    event_id: int = Field(description="Event ID")
+    published_status: str = Field(description="Publication status (e.g., Published)")
+    name: str = Field(description="Start list name (e.g., 'Thursday')")

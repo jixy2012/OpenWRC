@@ -2,8 +2,10 @@ from openwrc.exceptions.event_exceptions import (
     RallyNotFoundException,
     StageIndexOutOfRangeException,
     StageNotFoundException,
+    StartListNotFoundException,
+    StartListNotAvailableYetException,
 )
-from openwrc.models.external_api import EventMetadata, Itinerary, Stage
+from openwrc.models.external_api import EventMetadata, Itinerary, Stage, StartList
 from openwrc.models.external_api.event_models import RallyMetadata
 from openwrc.models.services import Stages
 from openwrc.services.base_service import BaseService
@@ -69,3 +71,40 @@ class EventInfoService(BaseService):
         raise StageIndexOutOfRangeException(
             rally_id=rally_id, event_id=event_id, order=order
         )
+
+    async def get_rally_start_list_ids(
+        self,
+        event_id: int,
+        rally_id: int,
+    ) -> list[int | None]:
+        itinerary = await self.get_rally_itinerary(event_id=event_id, rally_id=rally_id)
+        return [leg.start_list_id for leg in itinerary.itinerary_legs]
+
+    async def get_rally_start_list_by_id(
+        self,
+        event_id: int,
+        start_list_id: int,
+    ) -> StartList:
+        return await self.external_api_client.get_event_start_list(
+            event_id=event_id, start_list_id=start_list_id
+        )
+
+    async def get_rally_start_list_by_order(
+        self, event_id: int, rally_id: int, order: int
+    ) -> StartList:
+        start_list_ids = await self.get_rally_start_list_ids(
+            event_id=event_id, rally_id=rally_id
+        )
+        try:
+            target_start_list_id = start_list_ids[order]
+            if target_start_list_id is None:
+                raise StartListNotAvailableYetException(
+                    rally_id=rally_id, event_id=event_id, order=order
+                )
+            return await self.get_rally_start_list_by_id(
+                event_id=event_id, start_list_id=target_start_list_id
+            )
+        except IndexError:
+            raise StartListNotFoundException(
+                rally_id=rally_id, event_id=event_id, order=order
+            )

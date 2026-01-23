@@ -18,6 +18,7 @@ from .entry_models import (
     Group,
     Entry,
     RallyEntries,
+    StartList,
 )
 
 # Result models
@@ -27,6 +28,7 @@ from .result_models import (
     StageResults,
     StageTimeEntry,
     StageTimeResults,
+    ShakedownTimeResults,
 )
 
 # Itinerary models
@@ -53,12 +55,14 @@ __all__ = [
     "Group",
     "Entry",
     "RallyEntries",
+    "StartList",
     # Result models
     "ResultEntry",
     "RallyResults",
     "StageResults",
     "StageTimeEntry",
     "StageTimeResults",
+    "ShakedownTimeResults",
     # Itinerary models
     "Control",
     "Stage",

@@ -47,7 +47,21 @@ class StageTimeEntry(BaseEntry):
     source: str = Field(description="Data source (e.g., 'Default')")  # TODO: make enum
 
 
+class ShakedownTimeEntry(WrcExternalApiBaseModel):
+    """A single shakedown time entry for a driver's shakedown run"""
+
+    shakedown_time_id: int = Field(
+        description="Unique identifier for this shakedown time"
+    )
+    event_id: int = Field(description="Event ID")
+    entry_id: int = Field(description="Entry ID for this driver/car combination")
+    run_number: int = Field(description="Run number (e.g., 1st run, 2nd run)")
+    shakedown_number: int = Field(description="Shakedown stage number")
+    run_duration_ms: int = Field(description="Run duration in milliseconds")
+
+
 # Type aliases for clarity
 RallyResults = list[ResultEntry]
 StageResults = list[ResultEntry]
 StageTimeResults = list[StageTimeEntry]
+ShakedownTimeResults = list[ShakedownTimeEntry]

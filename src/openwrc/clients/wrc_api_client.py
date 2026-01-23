@@ -8,6 +8,8 @@ from openwrc.models.external_api import (
     StageResults,
     RallyResults,
     StageTimeResults,
+    ShakedownTimeResults,
+    StartList,
 )
 
 URL_BASE = "https://p-p.redbull.com/rb-wrccom-lintegration-yv-prod/api/events"
@@ -20,6 +22,15 @@ class WrcApiClient:
         self.client = httpx.AsyncClient(
             timeout=timeout, base_url=self.base_url, follow_redirects=True
         )
+
+    async def aclose(self) -> None:
+        await self.client.aclose()
+
+    async def __aenter__(self) -> "WrcApiClient":
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb) -> None:
+        await self.aclose()
 
     async def _get(
         self,
@@ -126,4 +137,42 @@ class WrcApiClient:
             f"/{event_id}/stages/{stage_id}/stagetimes.json",
             params={"rallyId": rally_id},
             model=StageTimeResults,
+        )
+
+    async def get_event_shakedown_results(
+        self,
+        event_id: int,
+        shakedown_number: int = 1,
+    ) -> ShakedownTimeResults:
+        """example: /635/shakedowntimes.json?shakedownNumber=1
+
+        Args:
+            event_id (int): _description_
+            shakedown_number (int, optional): _description_. Defaults to 1.
+
+        Returns:
+            ShakedownTimeResults: _description_
+        """
+
+        return await self._get(
+            f"/{event_id}/shakedowntimes.json",
+            params={"shakedownNumber": shakedown_number},
+            model=ShakedownTimeResults,
+        )
+
+    async def get_event_start_list(
+        self, event_id: int, start_list_id: int
+    ) -> StartList:
+        """example: /635/startLists/2158.json
+
+        Args:
+            event_id (int): _description_
+            start_list_id (int): _description_
+
+        Returns:
+            StartList: _description_
+        """
+        return await self._get(
+            f"/{event_id}/startLists/{start_list_id}.json",
+            model=StartList,
         )
