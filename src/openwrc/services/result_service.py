@@ -1,5 +1,10 @@
 import asyncio
-from openwrc.models.external_api import RallyResults, StageResults, StageTimeResults
+from openwrc.models.external_api import (
+    RallyResults,
+    ShakedownTimeResults,
+    StageResults,
+    StageTimeResults,
+)
 from openwrc.models.services.result_models import (
     CumulativeRallyResultsByStage,
     CumulativeStageResults,
@@ -86,4 +91,11 @@ class RallyResultService(BaseService):
             rally_id=rally_id,
             event_id=event_id,
             cumulative_stage_results=await asyncio.gather(*futures),
+        )
+
+    async def get_event_shakedown_results(
+        self, event_id: int, shakedown_number: int = 1
+    ) -> ShakedownTimeResults:
+        return await self.external_api_client.get_event_shakedown_results(
+            event_id=event_id, shakedown_number=shakedown_number
         )

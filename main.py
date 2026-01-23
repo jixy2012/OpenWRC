@@ -4,7 +4,7 @@ from openwrc.services.result_service import RallyResultService
 
 async def main():
     service = RallyResultService()
-    data = await service.get_single_stage_results_by_order(555, 603, 15)
+    data = await service.get_event_shakedown_results(635)
     # data = await service.get_cumulative_rally_results_by_stage(555, 603)
     # data = service.get_cumulative_stage_results_by_id(555, 603, 10281)
     # data = service.get_rally_itinerary_id(555, 603)
