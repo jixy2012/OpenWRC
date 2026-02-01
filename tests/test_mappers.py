@@ -6,8 +6,8 @@ import pytest
 from datetime import datetime, date, timezone
 
 from openwrc.storage.mappers import (
-    map_event_metadata_to_db_model,
-    map_rally_metadata_to_db_model,
+    map_api_event_to_db_model,
+    map_api_rally_to_db_model,
     map_api_person_to_db_model,
     map_api_driver_to_db_model,
     map_api_codriver_to_db_model,
@@ -23,7 +23,7 @@ from openwrc.models.db.entities import PersonType
 from openwrc.models.external_api import (
     ApiEventMetadata,
     ApiRallyMetadata,
-    ApiCountry,
+    ApiCountryMetadata,
     ApiPerson,
     ApiDriver,
     ApiCoDriver,
@@ -65,13 +65,15 @@ class TestEventMetadataMapper:
             time_zone_id="Europe/Monaco",
             time_zone_name="CET",
             country_id=1,
-            country=ApiCountry(country_id=1, name="Monaco", iso2="MC", iso3="MCO"),
+            country=ApiCountryMetadata(
+                country_id=1, name="Monaco", iso2="MC", iso3="MCO"
+            ),
             shakedown_count=1,
             rallies=[minimal_rally],
             event_classes=[],
         )
 
-        db_event = map_event_metadata_to_db_model(api_event)
+        db_event = map_api_event_to_db_model(api_event)
 
         assert db_event.event_id == 123
         assert db_event.name == "Rally Monte Carlo"
@@ -108,13 +110,15 @@ class TestEventMetadataMapper:
             time_zone_id="Europe/Paris",
             time_zone_name="CET",
             country_id=1,
-            country=ApiCountry(country_id=1, name="France", iso2="FR", iso3="FRA"),
+            country=ApiCountryMetadata(
+                country_id=1, name="France", iso2="FR", iso3="FRA"
+            ),
             shakedown_count=0,
             rallies=[minimal_rally],
             event_classes=[],
         )
 
-        db_event = map_event_metadata_to_db_model(api_event)
+        db_event = map_api_event_to_db_model(api_event)
 
         assert isinstance(db_event.time_zone_id, str)
         assert db_event.time_zone_id == "Europe/Paris"
@@ -133,7 +137,7 @@ class TestRallyMetadataMapper:
             event_classes=[],
         )
 
-        db_rally = map_rally_metadata_to_db_model(api_rally)
+        db_rally = map_api_rally_to_db_model(api_rally)
 
         assert db_rally.rally_id == 456
         assert db_rally.event_id == 123
@@ -151,7 +155,7 @@ class TestRallyMetadataMapper:
             event_classes=[],
         )
 
-        db_rally = map_rally_metadata_to_db_model(api_rally)
+        db_rally = map_api_rally_to_db_model(api_rally)
 
         assert db_rally.is_main is False
 
@@ -163,7 +167,9 @@ class TestPersonMappers:
         api_person = ApiPerson(
             person_id=100,
             country_id=1,
-            country=ApiCountry(country_id=1, name="France", iso2="FR", iso3="FRA"),
+            country=ApiCountryMetadata(
+                country_id=1, name="France", iso2="FR", iso3="FRA"
+            ),
             season_id=2024,
             event_id=None,
             external_id="ext-123",
@@ -195,7 +201,9 @@ class TestPersonMappers:
         api_driver = ApiDriver(
             person_id=100,
             country_id=1,
-            country=ApiCountry(country_id=1, name="France", iso2="FR", iso3="FRA"),
+            country=ApiCountryMetadata(
+                country_id=1, name="France", iso2="FR", iso3="FRA"
+            ),
             first_name="Sébastien",
             last_name="Ogier",
             abbv_name="S. OGIER",
@@ -212,7 +220,9 @@ class TestPersonMappers:
         api_codriver = ApiCoDriver(
             person_id=101,
             country_id=1,
-            country=ApiCountry(country_id=1, name="France", iso2="FR", iso3="FRA"),
+            country=ApiCountryMetadata(
+                country_id=1, name="France", iso2="FR", iso3="FRA"
+            ),
             first_name="Vincent",
             last_name="Landais",
             abbv_name="V. LANDAIS",
@@ -229,7 +239,9 @@ class TestPersonMappers:
         api_person = ApiPerson(
             person_id=102,
             country_id=1,
-            country=ApiCountry(country_id=1, name="Test", iso2="TS", iso3="TST"),
+            country=ApiCountryMetadata(
+                country_id=1, name="Test", iso2="TS", iso3="TST"
+            ),
             season_id=None,
             event_id=None,
             external_id=None,
@@ -258,7 +270,9 @@ class TestEntryMapper:
         mock_driver = ApiDriver(
             person_id=100,
             country_id=1,
-            country=ApiCountry(country_id=1, name="France", iso2="FR", iso3="FRA"),
+            country=ApiCountryMetadata(
+                country_id=1, name="France", iso2="FR", iso3="FRA"
+            ),
             first_name="Sébastien",
             last_name="Ogier",
             abbv_name="S. OGIER",
@@ -269,7 +283,9 @@ class TestEntryMapper:
         mock_codriver = ApiCoDriver(
             person_id=101,
             country_id=1,
-            country=ApiCountry(country_id=1, name="France", iso2="FR", iso3="FRA"),
+            country=ApiCountryMetadata(
+                country_id=1, name="France", iso2="FR", iso3="FRA"
+            ),
             first_name="Vincent",
             last_name="Landais",
             abbv_name="V. LANDAIS",

@@ -5,17 +5,17 @@ from typing import Optional
 from pydantic import Field, ConfigDict
 
 from .base_external_model import WrcExternalApiBaseModel
-from .event_models import CountryMetadata, EventClass
+from .event_models import ApiCountryMetadata, ApiEventClass
 
 
-class Person(WrcExternalApiBaseModel):
+class ApiPerson(WrcExternalApiBaseModel):
     """Base model for driver or codriver"""
 
     model_config = ConfigDict(extra="ignore")
 
     person_id: int = Field(description="Unique identifier for this person")
     country_id: int
-    country: CountryMetadata
+    country: ApiCountryMetadata
 
     season_id: Optional[int] = Field(default=None)
     event_id: Optional[int] = Field(default=None)
@@ -32,19 +32,19 @@ class Person(WrcExternalApiBaseModel):
     state: Optional[str] = Field(default="")
 
 
-class Driver(Person):
+class ApiDriver(ApiPerson):
     """Driver information"""
 
     pass
 
 
-class CoDriver(Person):
+class ApiCoDriver(ApiPerson):
     """Co-driver information"""
 
     pass
 
 
-class Manufacturer(WrcExternalApiBaseModel):
+class ApiManufacturer(WrcExternalApiBaseModel):
     """Manufacturer/car brand information"""
 
     manufacturer_id: int = Field(description="Unique identifier for manufacturer")
@@ -54,7 +54,7 @@ class Manufacturer(WrcExternalApiBaseModel):
     )
 
 
-class Entrant(WrcExternalApiBaseModel):
+class ApiEntrant(WrcExternalApiBaseModel):
     """Team/entrant information"""
 
     entrant_id: int = Field(description="Unique identifier for the team")
@@ -64,14 +64,14 @@ class Entrant(WrcExternalApiBaseModel):
     )
 
 
-class Group(WrcExternalApiBaseModel):
+class ApiGroup(WrcExternalApiBaseModel):
     """Competition group (Rally1, Rally2, etc.)"""
 
     group_id: int = Field(description="Unique identifier for this group")
     name: str = Field(description="Group name (e.g., Rally1, Rally2)")
 
 
-class Entry(WrcExternalApiBaseModel):
+class ApiEntry(WrcExternalApiBaseModel):
     """
     Complete entry for a driver/car/team combination in an event.
     This is the main unit that competes in rallies.
@@ -84,12 +84,12 @@ class Entry(WrcExternalApiBaseModel):
     event_id: int
 
     # Related entities
-    driver: Driver
-    codriver: CoDriver
-    manufacturer: Manufacturer
-    entrant: Entrant
-    group: Group
-    event_classes: list[EventClass]
+    driver: ApiDriver
+    codriver: ApiCoDriver
+    manufacturer: ApiManufacturer
+    entrant: ApiEntrant
+    group: ApiGroup
+    event_classes: list[ApiEventClass]
 
     # IDs for relationships
     driver_id: int
@@ -118,10 +118,10 @@ class Entry(WrcExternalApiBaseModel):
 
 
 # Type alias for list of entries
-RallyEntries = list[Entry]
+ApiRallyEntries = list[ApiEntry]
 
 
-class StartListItem(WrcExternalApiBaseModel):
+class ApiStartListItem(WrcExternalApiBaseModel):
     """A single entry in a start list with start time and order"""
 
     start_list_item_id: int = Field(
@@ -133,10 +133,10 @@ class StartListItem(WrcExternalApiBaseModel):
     order: int = Field(description="Start order position")
 
 
-class StartList(WrcExternalApiBaseModel):
+class ApiStartList(WrcExternalApiBaseModel):
     """Complete start list for a leg"""
 
-    start_list_items: list[StartListItem] = Field(
+    start_list_items: list[ApiStartListItem] = Field(
         default_factory=list, description="All start list entries"
     )
     start_list_id: int = Field(description="Unique identifier for this start list")

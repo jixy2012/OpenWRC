@@ -4,42 +4,46 @@ External API models with Api prefix for clarity.
 
 # Event models
 from .event_models import (
-    EventMetadata as ApiEventMetadata,
-    RallyMetadata as ApiRallyMetadata,
-    EventClass as ApiEventClass,
-    CountryMetadata as ApiCountry,
+    ApiEventMetadata,
+    ApiRallyMetadata,
+    ApiEventClass,
+    ApiCountryMetadata,
 )
 
 # Entry models
 from .entry_models import (
-    Person as ApiPerson,
-    Driver as ApiDriver,
-    CoDriver as ApiCoDriver,
-    Manufacturer as ApiManufacturer,
-    Entrant as ApiEntrant,
-    Group as ApiGroup,
-    Entry as ApiEntry,
-    RallyEntries as ApiRallyEntries,
-    StartList as ApiStartList,
-    StartListItem as ApiStartListItem,
+    ApiPerson,
+    ApiDriver,
+    ApiCoDriver,
+    ApiManufacturer,
+    ApiEntrant,
+    ApiGroup,
+    ApiEntry,
+    ApiRallyEntries,
+    ApiStartList,
+    ApiStartListItem,
 )
 
 # Itinerary models
 from .itinerary_models import (
-    Itinerary as ApiItinerary,
-    ItineraryLeg as ApiItineraryLeg,
-    ItinerarySection as ApiItinerarySection,
-    Stage as ApiStage,
-    Control as ApiControl,
+    ApiItinerary,
+    ApiItineraryLeg,
+    ApiItinerarySection,
+    ApiStage,
+    ApiControl,
 )
 
 # Result models
 from .result_models import (
-    StageResults as ApiStageResults,
-    RallyResults as ApiRallyResults,
-    SplitTimeResults as ApiSplitTimeResults,
-    StageTimeResults as ApiStageTimeResults,
-    ShakedownTimeResults as ApiShakedownTimeResults,
+    ApiStageResults,
+    ApiRallyResults,
+    ApiSplitTimeResults,
+    ApiStageTimeResults,
+    ApiShakedownTimeResults,
+    ApiResultEntry,
+    ApiStageTimeEntry,
+    ApiShakedownTimeEntry,
+    ApiSplitTimeEntry,
 )
 
 __all__ = [
@@ -47,7 +51,7 @@ __all__ = [
     "ApiEventMetadata",
     "ApiRallyMetadata",
     "ApiEventClass",
-    "ApiCountry",
+    "ApiCountryMetadata",
     # Entry
     "ApiPerson",
     "ApiDriver",
@@ -71,4 +75,8 @@ __all__ = [
     "ApiSplitTimeResults",
     "ApiStageTimeResults",
     "ApiShakedownTimeResults",
+    "ApiResultEntry",
+    "ApiStageTimeEntry",
+    "ApiShakedownTimeEntry",
+    "ApiSplitTimeEntry",
 ]

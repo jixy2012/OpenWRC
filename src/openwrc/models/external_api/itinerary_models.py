@@ -5,7 +5,7 @@ from pydantic import Field, ConfigDict
 from .base_external_model import WrcExternalApiBaseModel
 
 
-class Control(WrcExternalApiBaseModel):
+class ApiControl(WrcExternalApiBaseModel):
     """
     A control point in the rally (time control, stage start/finish, etc.)
     """
@@ -48,7 +48,7 @@ class Control(WrcExternalApiBaseModel):
     bogey_ms: int | None = Field(None, description="Bogey time in milliseconds")
 
 
-class Stage(WrcExternalApiBaseModel):
+class ApiStage(WrcExternalApiBaseModel):
     """A special stage in the rally"""
 
     stage_id: int = Field(description="Unique identifier for this stage")
@@ -67,7 +67,7 @@ class Stage(WrcExternalApiBaseModel):
     code: str = Field(description="Stage code (e.g., SS1, SS2)")
 
 
-class ItinerarySection(WrcExternalApiBaseModel):
+class ApiItinerarySection(WrcExternalApiBaseModel):
     """A section within a leg (group of stages and controls)"""
 
     model_config = ConfigDict(extra="ignore")
@@ -77,15 +77,15 @@ class ItinerarySection(WrcExternalApiBaseModel):
     order: int = Field(description="Section order within leg")
     name: str = Field(description="Section name")
 
-    controls: list[Control] = Field(
+    controls: list[ApiControl] = Field(
         default_factory=list, description="All control points in this section"
     )
-    stages: list[Stage] = Field(
+    stages: list[ApiStage] = Field(
         default_factory=list, description="All stages in this section"
     )
 
 
-class ItineraryLeg(WrcExternalApiBaseModel):
+class ApiItineraryLeg(WrcExternalApiBaseModel):
     """A leg of the rally (typically one day)"""
 
     model_config = ConfigDict(extra="ignore")
@@ -99,18 +99,18 @@ class ItineraryLeg(WrcExternalApiBaseModel):
     order: int = Field(description="Leg order (1, 2, 3, etc.)")
     status: str = Field(description="Leg status (Scheduled, Completed, Cancelled)")
 
-    itinerary_sections: list[ItinerarySection] = Field(
+    itinerary_sections: list[ApiItinerarySection] = Field(
         default_factory=list, description="All sections in this leg"
     )
 
 
-class Itinerary(WrcExternalApiBaseModel):
+class ApiItinerary(WrcExternalApiBaseModel):
     """
     Complete itinerary for a rally.
     Contains the full schedule with all legs, sections, stages, and controls.
     """
 
-    itinerary_legs: list[ItineraryLeg] = Field(
+    itinerary_legs: list[ApiItineraryLeg] = Field(
         default_factory=list, description="All legs (days) of the rally"
     )
 

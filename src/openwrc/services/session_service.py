@@ -5,7 +5,7 @@ from openwrc.exceptions.session_exceptions import (
     SessionInputValidationException,
     SessionDateOutOfRangeException,
 )
-from openwrc.models.external_api import EventMetadata, ItineraryLeg
+from openwrc.models.external_api import ApiEventMetadata, ApiItineraryLeg
 from openwrc.services.event_service import EventInfoService
 from openwrc.services.result_service import RallyResultService
 import httpx
@@ -29,7 +29,7 @@ class WrcSession:
             - driver & co driver info
         """
         self.external_api_client = WrcApiClient()
-        self._rally_itinerary_by_day: dict[int, ItineraryLeg] | None = None
+        self._rally_itinerary_by_day: dict[int, ApiItineraryLeg] | None = None
 
     @classmethod
     async def create(
@@ -62,7 +62,7 @@ class WrcSession:
         rally_id: int | None = None,
         year: int | None = None,
         location: str | None = None,
-    ) -> EventMetadata:
+    ) -> ApiEventMetadata:
         # need both event id and rally id, or year and location
         if year and location:
             raise SessionInputValidationException(
@@ -98,7 +98,7 @@ class WrcSession:
         )
 
     @property
-    def rally_itinerary(self) -> dict[int, ItineraryLeg]:
+    def rally_itinerary(self) -> dict[int, ApiItineraryLeg]:
         return self._rally_itinerary_by_day
 
     @cached_property

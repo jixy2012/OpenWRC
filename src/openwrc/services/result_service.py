@@ -1,10 +1,10 @@
 import asyncio
 from openwrc.models.external_api import (
-    RallyResults,
-    ShakedownTimeResults,
-    SplitTimeResults,
-    StageResults,
-    StageTimeResults,
+    ApiRallyResults,
+    ApiShakedownTimeResults,
+    ApiSplitTimeResults,
+    ApiStageResults,
+    ApiStageTimeResults,
 )
 from openwrc.models.services.result_models import (
     CumulativeRallyResultsByStage,
@@ -21,14 +21,14 @@ class RallyResultService(BaseService):
             self._event_service = EventInfoService(self.external_api_client)
         return self._event_service
 
-    def get_rally_results(self, event_id: int, rally_id: int) -> RallyResults:
+    def get_rally_results(self, event_id: int, rally_id: int) -> ApiRallyResults:
         return self.external_api_client.get_rally_results(
             event_id=event_id, rally_id=rally_id
         )
 
     async def get_cumulative_stage_results_by_id(
         self, event_id: int, rally_id: int, stage_id: int
-    ) -> StageResults:
+    ) -> ApiStageResults:
         """overall results for the entire rally up until that stage
 
         Args:
@@ -45,7 +45,7 @@ class RallyResultService(BaseService):
 
     async def get_single_stage_results_by_id(
         self, event_id: int, rally_id, stage_id: int
-    ) -> StageTimeResults:
+    ) -> ApiStageTimeResults:
         """results for a single stage_summary_
 
         Args:
@@ -62,7 +62,7 @@ class RallyResultService(BaseService):
 
     async def get_single_stage_results_by_order(
         self, event_id: int, rally_id: int, order: int
-    ) -> StageTimeResults:
+    ) -> ApiStageTimeResults:
         stage = await self.event_service.get_rally_stage_by_order(
             event_id=event_id, rally_id=rally_id, order=order
         )
@@ -72,14 +72,14 @@ class RallyResultService(BaseService):
 
     async def get_stage_split_time_results_by_id(
         self, event_id: int, rally_id, stage_id: int
-    ) -> SplitTimeResults:
+    ) -> ApiSplitTimeResults:
         return await self.external_api_client.get_rally_stage_split_time_results(
             event_id=event_id, rally_id=rally_id, stage_id=stage_id
         )
 
     async def get_stage_split_time_results_by_order(
         self, event_id: int, rally_id: int, order: int
-    ) -> SplitTimeResults:
+    ) -> ApiSplitTimeResults:
         stage = await self.event_service.get_rally_stage_by_order(
             event_id=event_id, rally_id=rally_id, order=order
         )
@@ -113,7 +113,7 @@ class RallyResultService(BaseService):
 
     async def get_event_shakedown_results(
         self, event_id: int, shakedown_number: int = 1
-    ) -> ShakedownTimeResults:
+    ) -> ApiShakedownTimeResults:
         return await self.external_api_client.get_event_shakedown_results(
             event_id=event_id, shakedown_number=shakedown_number
         )

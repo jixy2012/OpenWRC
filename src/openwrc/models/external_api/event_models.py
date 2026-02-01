@@ -5,14 +5,14 @@ from pydantic_extra_types.timezone_name import TimeZoneName
 from .base_external_model import WrcExternalApiBaseModel
 
 
-class EventClass(WrcExternalApiBaseModel):
+class ApiEventClass(WrcExternalApiBaseModel):
     # classes like RC1, RC2, etc.
     event_class_id: int
     event_id: int
     name: str = Field(description="Competition class name (e.g., RC1, RC2)")
 
 
-class RallyMetadata(WrcExternalApiBaseModel):
+class ApiRallyMetadata(WrcExternalApiBaseModel):
     # events can have more than one rally
     rally_id: int = Field(description="Unique identifier for this rally")
     event_id: int
@@ -21,10 +21,10 @@ class RallyMetadata(WrcExternalApiBaseModel):
     itinerary_id: int
     name: str
     is_main: bool
-    event_classes: list[EventClass]
+    event_classes: list[ApiEventClass]
 
 
-class CountryMetadata(WrcExternalApiBaseModel):
+class ApiCountryMetadata(WrcExternalApiBaseModel):
     country_id: int
     name: str
     iso2: str = Field(min_length=2, max_length=2)
@@ -45,19 +45,19 @@ def convert_to_utc(dt: datetime, tz: TimeZoneName) -> datetime:
     return dt
 
 
-class EventMetadata(WrcExternalApiBaseModel):
+class ApiEventMetadata(WrcExternalApiBaseModel):
 
     # default to allowing extra fields from external sources
     model_config = ConfigDict(extra="ignore")
 
-    rallies: list[RallyMetadata] = Field(min_length=1)
-    event_classes: list[EventClass] = Field(
+    rallies: list[ApiRallyMetadata] = Field(min_length=1)
+    event_classes: list[ApiEventClass] = Field(
         description="All competition classes in this event"
     )
     event_id: int
 
     country_id: int
-    country: CountryMetadata
+    country: ApiCountryMetadata
     name: str = Field(description="Official event name")
 
     slug: str = Field(description="uri slug maybe useful for some requests")
@@ -74,7 +74,7 @@ class EventMetadata(WrcExternalApiBaseModel):
     shakedown_count: int = Field(description="Number of shakedown stages")
 
     @model_validator(mode="after")
-    def convert_start_finish_to_utc(self) -> "EventMetadata":
+    def convert_start_finish_to_utc(self) -> "ApiEventMetadata":
         """we convert start and finish dates from local time to utc time for easier comparison"""
         self.start_date = convert_to_utc(self.start_date, self.time_zone_id)
         self.finish_date = convert_to_utc(self.finish_date, self.time_zone_id)

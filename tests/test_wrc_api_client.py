@@ -7,9 +7,9 @@ import pytest
 import pytest_asyncio
 from openwrc.clients.wrc_api_client import WrcApiClient
 from openwrc.models.external_api import (
-    EventMetadata,
-    Itinerary,
-    StartList,
+    ApiEventMetadata,
+    ApiItinerary,
+    ApiStartList,
 )
 
 
@@ -36,7 +36,7 @@ async def test_get_event_metadata(client: WrcApiClient) -> None:
     """Test fetching event metadata"""
     result = await client.get_event_metadata(EVENT_ID)
 
-    assert isinstance(result, EventMetadata)
+    assert isinstance(result, ApiEventMetadata)
     assert result.event_id == EVENT_ID
     assert len(result.rallies) > 0
     print(f"✓ Event metadata: {result.name}")
@@ -47,7 +47,7 @@ async def test_get_event_itineraries(client: WrcApiClient) -> None:
     """Test fetching event itineraries"""
     result = await client.get_event_itineraries(EVENT_ID, ITINERARY_ID)
 
-    assert isinstance(result, Itinerary)
+    assert isinstance(result, ApiItinerary)
     assert result.itinerary_id == ITINERARY_ID
     assert len(result.itinerary_legs) > 0
     print(f"✓ Itinerary: {len(result.itinerary_legs)} legs")
@@ -130,7 +130,7 @@ async def test_get_event_start_list(client: WrcApiClient) -> None:
     """Test fetching start list"""
     result = await client.get_event_start_list(SHAKEDOWN_EVENT_ID, START_LIST_ID)
 
-    assert isinstance(result, StartList)
+    assert isinstance(result, ApiStartList)
     assert result.start_list_id == START_LIST_ID
     assert len(result.start_list_items) > 0
     # Verify each item has the required fields

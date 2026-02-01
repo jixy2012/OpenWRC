@@ -1,11 +1,11 @@
 from pydantic import BaseModel
 
-from openwrc.models.external_api.result_models import StageResults
+from openwrc.models.external_api import ApiStageResults
 
 
 class CumulativeStageResults(BaseModel):
     stage_id: int
-    results: StageResults
+    results: ApiStageResults
 
 
 class CumulativeRallyResultsByStage(BaseModel):

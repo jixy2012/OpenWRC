@@ -1,4 +1,4 @@
-from openwrc.models.external_api.itinerary_models import Stage
+from openwrc.models.external_api import ApiStage
 
 
-Stages = list[Stage]
+Stages = list[ApiStage]

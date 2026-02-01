@@ -9,7 +9,7 @@ from pydantic import Field
 from .base_external_model import WrcExternalApiBaseModel
 
 
-class BaseEntry(WrcExternalApiBaseModel):
+class ApiBaseEntry(WrcExternalApiBaseModel):
     entry_id: int = Field(description="Entry ID for this driver/car combination")
     # Position and time differences
     position: Optional[int] = Field(
@@ -24,7 +24,7 @@ class BaseEntry(WrcExternalApiBaseModel):
     )
 
 
-class ResultEntry(BaseEntry):
+class ApiResultEntry(ApiBaseEntry):
     """A single result entry for a driver in a rally or stage"""
 
     # Time data in milliseconds (easier to work with)
@@ -35,7 +35,7 @@ class ResultEntry(BaseEntry):
     )
 
 
-class StageTimeEntry(BaseEntry):
+class ApiStageTimeEntry(ApiBaseEntry):
     """A single stage time entry for a driver's performance on a specific stage"""
 
     stage_id: int = Field(description="Stage ID")
@@ -48,7 +48,7 @@ class StageTimeEntry(BaseEntry):
     source: str = Field(description="Data source (e.g., 'Default')")  # TODO: make enum
 
 
-class ShakedownTimeEntry(WrcExternalApiBaseModel):
+class ApiShakedownTimeEntry(WrcExternalApiBaseModel):
     """A single shakedown time entry for a driver's shakedown run"""
 
     shakedown_time_id: int = Field(
@@ -61,7 +61,7 @@ class ShakedownTimeEntry(WrcExternalApiBaseModel):
     run_duration_ms: int = Field(description="Run duration in milliseconds")
 
 
-class SplitTimeEntry(WrcExternalApiBaseModel):
+class ApiSplitTimeEntry(WrcExternalApiBaseModel):
     """A single split time entry for an entry at a split point."""
 
     start_date_time: datetime = Field(description="Start time in UTC")
@@ -80,8 +80,8 @@ class SplitTimeEntry(WrcExternalApiBaseModel):
 
 
 # Type aliases for clarity
-RallyResults = list[ResultEntry]
-StageResults = list[ResultEntry]
-StageTimeResults = list[StageTimeEntry]
-ShakedownTimeResults = list[ShakedownTimeEntry]
-SplitTimeResults = list[SplitTimeEntry]
+ApiRallyResults = list[ApiResultEntry]
+ApiStageResults = list[ApiResultEntry]
+ApiStageTimeResults = list[ApiStageTimeEntry]
+ApiShakedownTimeResults = list[ApiShakedownTimeEntry]
+ApiSplitTimeResults = list[ApiSplitTimeEntry]
