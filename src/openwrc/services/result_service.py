@@ -117,3 +117,8 @@ class RallyResultService(BaseService):
         return await self.external_api_client.get_event_shakedown_results(
             event_id=event_id, shakedown_number=shakedown_number
         )
+
+    async def get_current_split_deltas(
+        self, event_id: int, rally_id: int, stage_id: int
+    ):
+        pass

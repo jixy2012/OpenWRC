@@ -5,6 +5,10 @@ from .event_exceptions import (
     StartListNotFoundException,
     StartListNotAvailableYetException,
 )
+from .session_exceptions import (
+    SessionInputValidationException,
+    SessionDateOutOfRangeException,
+)
 
 __all__ = [
     "RallyNotFoundException",
@@ -12,4 +16,6 @@ __all__ = [
     "StageNotFoundException",
     "StartListNotFoundException",
     "StartListNotAvailableYetException",
+    "SessionInputValidationException",
+    "SessionDateOutOfRangeException",
 ]

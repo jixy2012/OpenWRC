@@ -5,7 +5,13 @@ from openwrc.exceptions.event_exceptions import (
     StartListNotFoundException,
     StartListNotAvailableYetException,
 )
-from openwrc.models.external_api import EventMetadata, Itinerary, Stage, StartList
+from openwrc.models.external_api import (
+    EventMetadata,
+    Itinerary,
+    ItineraryLeg,
+    Stage,
+    StartList,
+)
 from openwrc.models.external_api.event_models import RallyMetadata
 from openwrc.models.services import Stages
 from openwrc.services.base_service import BaseService
@@ -41,6 +47,15 @@ class EventInfoService(BaseService):
         return await self.external_api_client.get_event_itineraries(
             event_id=event_id, itinerary_id=id
         )
+
+    async def get_rally_itinerary_by_day(
+        self, event_id: int, rally_id: int
+    ) -> dict[int, ItineraryLeg]:
+        itinerary = await self.get_rally_itinerary(event_id=event_id, rally_id=rally_id)
+        return {
+            itinerary_leg.order: itinerary_leg
+            for itinerary_leg in itinerary.itinerary_legs
+        }
 
     async def get_rally_stages(self, event_id: int, rally_id: int) -> Stages:
         itinerary = await self.get_rally_itinerary(event_id=event_id, rally_id=rally_id)
