@@ -12,6 +12,7 @@ from openwrc.models.db.event import EntryEventClass, EventClass, RallyEventClass
 from openwrc.models.db.itinerary import StartList, StartListPublishStatus
 from openwrc.models.external_api import (
     ApiCoDriver,
+    ApiControl,
     ApiCountryMetadata,
     ApiDriver,
     ApiEntrant,
@@ -20,12 +21,14 @@ from openwrc.models.external_api import (
     ApiGroup,
     ApiItinerary,
     ApiItineraryLeg,
+    ApiItinerarySection,
     ApiManufacturer,
     ApiRallyEntries,
     ApiRallyMetadata,
     ApiRallyResults,
     ApiShakedownTimeResults,
     ApiSplitTimeResults,
+    ApiStage,
     ApiStageTimeResults,
     ApiStartList,
 )
@@ -218,41 +221,45 @@ async def upsert_itinerary_legs(
         await try_upsert_leg(leg=leg)
 
 
-async def upsert_itinerary_sections(session: AsyncSession, api_response: ApiItinerary):
-    # sections first (FK parent for controls and stages)
-    for leg in api_response.itinerary_legs:
-        for section in leg.itinerary_sections:
-            await upsert_instance(
-                session=session,
-                instance=map_api_itinerary_section_to_db_model(
-                    api_itinerary_section=section
-                ),
-            )
+async def upsert_itinerary_sections(
+    session: AsyncSession, api_response: list[ApiItinerarySection]
+):
+    for section in api_response:
+        await upsert_instance(
+            session=session,
+            instance=map_api_itinerary_section_to_db_model(
+                api_itinerary_section=section
+            ),
+        )
 
-    # then controls and stages (depend on sections)
-    for leg in api_response.itinerary_legs:
-        for section in leg.itinerary_sections:
-            for control in section.controls:
-                await upsert_instance(
-                    session=session,
-                    instance=map_api_control_to_db_model(
-                        api_control=control,
-                        itinerary_section_id=section.itinerary_section_id,
-                    ),
-                )
-            for stage in section.stages:
-                await upsert_instance(
-                    session=session,
-                    instance=map_api_stage_to_db_model(
-                        api_stage=stage,
-                        itinerary_section_id=section.itinerary_section_id,
-                    ),
-                )
+
+async def upsert_controls(
+    session: AsyncSession, api_response: list[ApiControl], itinerary_section_id: int
+):
+    for control in api_response:
+        await upsert_instance(
+            session=session,
+            instance=map_api_control_to_db_model(
+                api_control=control,
+                itinerary_section_id=itinerary_section_id,
+            ),
+        )
+
+
+async def upsert_stages(
+    session: AsyncSession, api_response: list[ApiStage], itinerary_section_id: int
+):
+    for stage in api_response:
+        await upsert_instance(
+            session=session,
+            instance=map_api_stage_to_db_model(
+                api_stage=stage,
+                itinerary_section_id=itinerary_section_id,
+            ),
+        )
 
 
 # section entries
-
-
 async def upsert_entry_event_classes(
     session: AsyncSession, event_class_ids: list[int], entry_id: int
 ):

@@ -28,7 +28,10 @@ async def get_event_info(
             for id in itinerary_ids
         ]
     )
-    entries = await asyncio.gather(
+    composite_entries = await asyncio.gather(
         *[client.get_rally_entries(event_id=event_id, rally_id=id) for id in rally_ids]
     )
-    return event_metadata, itineraries, entries
+    flattened_entries = []
+    for entries in composite_entries:
+        flattened_entries.extend(entries)
+    return event_metadata, itineraries, flattened_entries

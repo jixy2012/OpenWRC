@@ -7,24 +7,30 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 
 from openwrc.clients.wrc_api_client import WrcApiClient
 from openwrc.models.db.base import Base
-from openwrc.models.external_api import ApiEventMetadata, ApiRallyEntries
+from openwrc.models.external_api import ApiEventMetadata, ApiItinerary, ApiRallyEntries
 from openwrc.storage.crud_utils import (
     upsert_codrivers,
+    upsert_controls,
     upsert_countries,
     upsert_drivers,
     upsert_entrants,
     upsert_entry_event_classes,
     upsert_event_classes,
+    upsert_event_itinerary,
     upsert_event_metadata,
     upsert_groups,
+    upsert_itinerary_legs,
+    upsert_itinerary_sections,
     upsert_manufacturers,
     upsert_rally_event_classes,
     upsert_rally_metadata,
+    upsert_stages,
 )
 from openwrc.storage.extract_utils import get_event_info
 from openwrc.storage.transform_utils import (
     transform_api_entries,
     transform_api_event_metadata,
+    transform_api_itinerary,
 )
 
 
@@ -49,6 +55,32 @@ class WrcDataStore:
         event_metadata, itineraries, entries = await get_event_info(
             client=self.api_client, event_id=event_id
         )
+        await self.etl_event_metadata(event_metadata=event_metadata)
+        for itinerary in itineraries:
+            await self.etl_itinerary(itinerary=itinerary)
+        await self.etl_event_entries(api_entries=entries)
+
+    async def etl_itinerary(self, itinerary: ApiItinerary):
+        legs, sections, section_id_to_controls, section_id_to_stages = (
+            transform_api_itinerary(api_response=itinerary)
+        )
+        async with self.SessionLocal() as session:
+            await upsert_event_itinerary(session=session, api_response=itinerary)
+            await upsert_itinerary_legs(session=session, api_response=legs)
+            await upsert_itinerary_sections(session=session, api_response=sections)
+            for section_id, controls in section_id_to_controls.items():
+                await upsert_controls(
+                    session=session,
+                    api_response=controls,
+                    itinerary_section_id=section_id,
+                )
+            for section_id, stages in section_id_to_stages.items():
+                await upsert_stages(
+                    session=session,
+                    api_response=stages,
+                    itinerary_section_id=section_id,
+                )
+            await session.commit()
 
     async def etl_event_metadata(self, event_metadata: ApiEventMetadata):
         rallies, event_classes, rally_to_class_ids = transform_api_event_metadata(
