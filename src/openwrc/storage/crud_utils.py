@@ -3,17 +3,26 @@ CRUD utilities for storing WRC data models.
 Stateless helper functions that transform API models to DB models and store them.
 """
 
-import asyncio
 from typing import TypeVar, Type
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from openwrc.models.db.base import Base
+from openwrc.models.db.entities import Country, Entrant, Group, Manufacturer
+from openwrc.models.db.event import EntryEventClass, EventClass, RallyEventClass
 from openwrc.models.db.itinerary import StartList, StartListPublishStatus
 from openwrc.models.external_api import (
+    ApiCoDriver,
+    ApiCountryMetadata,
+    ApiDriver,
+    ApiEntrant,
+    ApiEventClass,
     ApiEventMetadata,
+    ApiGroup,
     ApiItinerary,
     ApiItineraryLeg,
+    ApiManufacturer,
     ApiRallyEntries,
+    ApiRallyMetadata,
     ApiRallyResults,
     ApiShakedownTimeResults,
     ApiSplitTimeResults,
@@ -22,7 +31,10 @@ from openwrc.models.external_api import (
 )
 from openwrc.models.external_api.base_external_model import WrcExternalApiBaseModel
 from openwrc.storage.mappers import (
+    map_api_codriver_to_db_model,
     map_api_control_to_db_model,
+    map_api_driver_to_db_model,
+    map_api_entry_to_db_model,
     map_api_event_to_db_model,
     map_api_itinerary_leg_to_db_model,
     map_api_itinerary_section_to_db_model,
@@ -67,32 +79,120 @@ async def upsert_from_api(
     return await upsert_instance(session=session, instance=db_model_class(**data))
 
 
-async def upsert_event_metadata(
-    session: AsyncSession, api_response: ApiEventMetadata
-) -> bool:
+# upsert utils
+
+
+# section Entities
+async def upsert_countries(
+    session: AsyncSession, api_response: list[ApiCountryMetadata]
+):
+    for country in api_response:
+        await upsert_from_api(
+            session=session, api_model=country, db_model_class=Country
+        )
+
+
+async def upsert_drivers(session: AsyncSession, api_response: list[ApiDriver]):
+    for driver in api_response:
+        await upsert_instance(
+            session=session, instance=map_api_driver_to_db_model(driver)
+        )
+
+
+async def upsert_codrivers(session: AsyncSession, api_response: list[ApiCoDriver]):
+    for co_driver in api_response:
+        await upsert_instance(
+            session=session,
+            instance=map_api_codriver_to_db_model(api_codriver=co_driver),
+        )
+
+
+async def upsert_manufacturers(
+    session: AsyncSession, api_response: list[ApiManufacturer]
+):
+    for manufacturer in api_response:
+        await upsert_from_api(
+            session=session, api_model=manufacturer, db_model_class=Manufacturer
+        )
+
+
+async def upsert_groups(session: AsyncSession, api_response: list[ApiGroup]):
+    for group in api_response:
+        await upsert_from_api(session=session, api_model=group, db_model_class=Group)
+
+
+async def upsert_entrants(session: AsyncSession, api_response: list[ApiEntrant]):
+    for entrant in api_response:
+        await upsert_from_api(
+            session=session, api_model=entrant, db_model_class=Entrant
+        )
+
+
+# section ApiEventMetadata
+async def upsert_event_classes(
+    session: AsyncSession, api_response: list[ApiEventClass]
+):
+    for event_class in api_response:
+        await upsert_from_api(
+            session=session, api_model=event_class, db_model_class=EventClass
+        )
+
+
+async def upsert_rally_event_classes(
+    session: AsyncSession, event_class_ids: list[int], rally_id: int
+):
+    for event_class_id in event_class_ids:
+        await upsert_instance(
+            session=session,
+            instance=RallyEventClass(
+                rally_id=rally_id,
+                event_class_id=event_class_id,
+            ),
+        )
+
+
+async def upsert_event_metadata(session: AsyncSession, api_response: ApiEventMetadata):
+    """upsert event metadata info into 'events' table
+
+    Args:
+        session (AsyncSession): _description_
+        api_response (ApiEventMetadata): _description_
+
+    Returns:
+        bool: _description_
+    """
+
     event = map_api_event_to_db_model(api_event=api_response)
     # upsert event first for fk consistency
     await upsert_instance(session=session, instance=event)
 
-    rallies_upsert_futures = [
-        upsert_instance(session=session, instance=map_api_rally_to_db_model(rally))
-        for rally in api_response.rallies
-    ]
-    await asyncio.gather(*rallies_upsert_futures)
-    return True
+
+async def upsert_rally_metadata(
+    session: AsyncSession, api_response: list[ApiRallyMetadata]
+):
+    for rally in api_response:
+        await upsert_instance(
+            session=session, instance=map_api_rally_to_db_model(rally)
+        )
 
 
-async def upsert_start_list(session: AsyncSession, api_response: ApiStartList) -> bool:
-    # TODO
-    pass
+# section itinerary
 
 
-async def upsert_event_itineraries(
-    session: AsyncSession, api_response: ApiItinerary
-) -> bool:
-    itinerary = map_api_itinerary_to_db_model(api_itinerary=api_response)
+async def upsert_event_itinerary(
+    session: AsyncSession, api_response: ApiItinerary, rally_id: int
+):
+    # start with parent itinerary object
+    itinerary = map_api_itinerary_to_db_model(
+        api_itinerary=api_response, rally_id=rally_id
+    )
+    await upsert_instance(session=session, instance=itinerary)
 
-    async def try_upsert_leg(leg: ApiItineraryLeg) -> bool:
+
+async def upsert_itinerary_legs(
+    session: AsyncSession, api_response: list[ApiItineraryLeg]
+):
+    async def try_upsert_leg(leg: ApiItineraryLeg):
         """_summary_
 
         Args:
@@ -114,85 +214,90 @@ async def upsert_event_itineraries(
             session=session, instance=map_api_itinerary_leg_to_db_model(leg)
         )
 
-    itinerary_legs_futures = [
-        try_upsert_leg(leg=leg) for leg in api_response.itinerary_legs
-    ]
+    for leg in api_response:
+        await try_upsert_leg(leg=leg)
 
-    sections_futures = []
-    controls_futures = []
-    stages_futures = {}
 
-    # unpack the complex objects
+async def upsert_itinerary_sections(session: AsyncSession, api_response: ApiItinerary):
+    # sections first (FK parent for controls and stages)
     for leg in api_response.itinerary_legs:
         for section in leg.itinerary_sections:
-            sections_futures.append(
-                upsert_instance(
+            await upsert_instance(
+                session=session,
+                instance=map_api_itinerary_section_to_db_model(
+                    api_itinerary_section=section
+                ),
+            )
+
+    # then controls and stages (depend on sections)
+    for leg in api_response.itinerary_legs:
+        for section in leg.itinerary_sections:
+            for control in section.controls:
+                await upsert_instance(
                     session=session,
-                    instance=map_api_itinerary_section_to_db_model(
-                        api_itinerary_section=section
+                    instance=map_api_control_to_db_model(
+                        api_control=control,
+                        itinerary_section_id=section.itinerary_section_id,
                     ),
                 )
-            )
-            controls_futures.extend(
-                [
-                    upsert_instance(
-                        session=session,
-                        instance=map_api_control_to_db_model(
-                            api_control=control,
-                            itinerary_section_id=section.itinerary_section_id,
-                        ),
-                    )
-                    for control in section.controls
-                ]
-            )
-            stages_futures.extend(
-                [
-                    upsert_instance(
-                        session=session,
-                        instance=map_api_stage_to_db_model(
-                            api_stage=stage,
-                            itinerary_section_id=section.itinerary_section_id,
-                        ),
-                    )
-                    for stage in section.stages
-                ]
-            )
-
-    # start with parent itinerary object
-    await upsert_instance(session=session, instance=itinerary)
-
-    # then legs
-    await asyncio.gather(*itinerary_legs_futures)
-    # then the sections
-    await asyncio.gather(*sections_futures)
-
-    # lastly, the lowest layer controls and stages
-    await asyncio.gather(*controls_futures, *stages_futures)
-    return True
+            for stage in section.stages:
+                await upsert_instance(
+                    session=session,
+                    instance=map_api_stage_to_db_model(
+                        api_stage=stage,
+                        itinerary_section_id=section.itinerary_section_id,
+                    ),
+                )
 
 
-def upsert_rally_entries(session: AsyncSession, api_response: ApiRallyEntries) -> bool:
+# section entries
+
+
+async def upsert_entry_event_classes(
+    session: AsyncSession, event_class_ids: list[int], entry_id: int
+):
+    for event_class_id in event_class_ids:
+        await upsert_instance(
+            session=session,
+            instance=EntryEventClass(
+                entry_id=entry_id,
+                event_class_id=event_class_id,
+            ),
+        )
+
+
+async def upsert_entries(
+    session: AsyncSession, api_response: ApiRallyEntries, rally_id: int
+):
+    for entry in api_response:
+        await upsert_instance(
+            session=session,
+            instance=map_api_entry_to_db_model(rally_id=rally_id, api_entry=entry),
+        )
+
+
+# start list section TODO
+
+
+async def upsert_start_list(session: AsyncSession, api_response: ApiStartList):
+    # TODO
     pass
 
 
 # results section TODO
-def upsert_rally_results(session: AsyncSession, api_response: ApiRallyResults) -> bool:
+def upsert_rally_results(session: AsyncSession, api_response: ApiRallyResults):
     pass
 
 
-def upsert_stage_time_results(
-    session: AsyncSession, api_response: ApiStageTimeResults
-) -> bool:
+def upsert_stage_time_results(session: AsyncSession, api_response: ApiStageTimeResults):
     pass
 
 
-def upsert_split_time_results(
-    session: AsyncSession, api_response: ApiSplitTimeResults
-) -> bool:
+def upsert_split_time_results(session: AsyncSession, api_response: ApiSplitTimeResults):
     pass
 
 
 def upsert_shakedown_results(
     session: AsyncSession, api_response: ApiShakedownTimeResults
-) -> bool:
+):
     pass

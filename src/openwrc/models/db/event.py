@@ -68,7 +68,8 @@ class Entry(Base):
     entry_id: Mapped[int] = mapped_column(primary_key=True)
 
     # Foreign keys
-    event_id: Mapped[int] = mapped_column(ForeignKey(EventMetadata.event_id))
+    rally_id: Mapped[int] = mapped_column(ForeignKey(RallyMetadata.rally_id))
+
     driver_id: Mapped[int] = mapped_column(ForeignKey(Person.person_id))
     codriver_id: Mapped[int] = mapped_column(ForeignKey(Person.person_id))
     manufacturer_id: Mapped[int] = mapped_column(
@@ -96,3 +97,24 @@ class Entry(Base):
     pbf: Mapped[str | None] = mapped_column(String(50))
     drive: Mapped[str | None] = mapped_column(String(50))
     tags: Mapped[list[str] | None] = mapped_column(JSON)  # Store as JSON array
+
+
+class EntryEventClass(Base):
+    __tablename__ = "entry_event_classes"
+    # composite primary key
+    event_class_id: Mapped[int] = mapped_column(
+        ForeignKey(EventClass.event_class_id), primary_key=True
+    )
+    entry_id: Mapped[int] = mapped_column(ForeignKey(Entry.entry_id), primary_key=True)
+
+
+class RallyEventClass(Base):
+    __tablename__ = "rally_event_classes"
+
+    # composite primary key
+    rally_id: Mapped[int] = mapped_column(
+        ForeignKey(RallyMetadata.rally_id), primary_key=True
+    )
+    event_class_id: Mapped[int] = mapped_column(
+        ForeignKey(EventClass.event_class_id), primary_key=True
+    )

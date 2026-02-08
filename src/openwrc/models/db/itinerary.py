@@ -1,10 +1,10 @@
 from datetime import datetime, date
-from sqlalchemy import String, ForeignKey, Enum
+from sqlalchemy import String, ForeignKey
 from enum import Enum as PyEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
-from .event import EventMetadata
+from .event import EventMetadata, RallyMetadata
 
 
 class Itinerary(Base):
@@ -15,6 +15,7 @@ class Itinerary(Base):
 
     # Foreign keys
     event_id: Mapped[int] = mapped_column(ForeignKey(EventMetadata.event_id))
+    rally_id: Mapped[int] = mapped_column(ForeignKey(RallyMetadata.rally_id))
 
 
 class ItineraryLeg(Base):
@@ -138,9 +139,7 @@ class StartList(Base):
 
     # Start list info
     name: Mapped[str] = mapped_column(String(200))  # "Thursday"
-    published_status: Mapped[StartListPublishStatus] = mapped_column(
-        Enum(StartListPublishStatus)
-    )  # "Published"
+    published_status: Mapped[str] = mapped_column(String(50))  # "Published"
 
 
 class StartListItem(Base):

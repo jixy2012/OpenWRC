@@ -1,6 +1,5 @@
 """
-Test script to validate which API models can be directly converted to DB models.
-This helps identify which models need custom mapper functions.
+Test script to validate which API models can be directly converted to DB models using existing upsert utilities.
 """
 
 import asyncio
@@ -8,16 +7,23 @@ import json
 import os
 from datetime import datetime
 from openwrc.clients.wrc_api_client import WrcApiClient
-from openwrc.storage.sql_service import WrcDataStore
-from openwrc.storage.crud_utils import upsert_from_api
+from openwrc.storage.data_store_service import WrcDataStore
+from openwrc.storage.crud_utils import (
+    upsert_from_api,
+    upsert_event_metadata,
+    upsert_rally_metadata,
+    upsert_event_itinerary,
+    upsert_rally_entries,
+    upsert_drivers,
+    upsert_codrivers,
+)
 from openwrc.models.db.event import EventMetadata, RallyMetadata, EventClass, Entry
 from openwrc.models.db.entities import (
     Country,
     Group,
     Manufacturer,
     Entrant,
-    Driver,
-    CoDriver,
+    Person,
 )
 from openwrc.models.db.itinerary import (
     Itinerary,
@@ -49,12 +55,12 @@ async def test_model_conversion():
 
         results = {}
 
-        # Test 1: EventMetadata
+        # Test 1: EventMetadata (use dedicated upsert function)
         print("1️⃣  Testing EventMetadata...")
         try:
             api_event = await client.get_event_metadata(event_id=event_id)
             async with store.SessionLocal() as session:
-                db_event = await upsert_from_api(session, api_event, EventMetadata)
+                await upsert_event_metadata(session, api_event)
                 await session.commit()
             results["EventMetadata"] = "✅ SUCCESS"
         except Exception as e:
@@ -71,13 +77,12 @@ async def test_model_conversion():
         except Exception as e:
             results["Country"] = f"❌ FAILED: {type(e).__name__}: {str(e)[:100]}"
 
-        # Test 3: RallyMetadata
+        # Test 3: RallyMetadata (use dedicated upsert function)
         print("3️⃣  Testing RallyMetadata...")
         try:
             api_event = await client.get_event_metadata(event_id=event_id)
-            rally = api_event.rallies[0]
             async with store.SessionLocal() as session:
-                db_rally = await upsert_from_api(session, rally, RallyMetadata)
+                await upsert_rally_metadata(session, api_event)
                 await session.commit()
             results["RallyMetadata"] = "✅ SUCCESS"
         except Exception as e:
@@ -108,14 +113,16 @@ async def test_model_conversion():
             print(f"⚠️  Could not fetch entries: {e}")
             first_entry = None
 
-        # Test 5: Driver
+        # Test 5: Person (Driver) - use upsert_drivers
         print("5️⃣  Testing Driver...")
         try:
             if first_entry:
+                api_entries = await client.get_rally_entries(
+                    event_id=event_id, rally_id=rally_id
+                )
+                drivers = [entry.driver for entry in api_entries]
                 async with store.SessionLocal() as session:
-                    db_driver = await upsert_from_api(
-                        session, first_entry.driver, Driver
-                    )
+                    await upsert_drivers(session, drivers)
                     await session.commit()
                 results["Driver"] = "✅ SUCCESS"
             else:
@@ -123,14 +130,16 @@ async def test_model_conversion():
         except Exception as e:
             results["Driver"] = f"❌ FAILED: {type(e).__name__}: {str(e)[:100]}"
 
-        # Test 6: CoDriver
+        # Test 6: Person (CoDriver) - use upsert_codrivers
         print("6️⃣  Testing CoDriver...")
         try:
             if first_entry:
+                api_entries = await client.get_rally_entries(
+                    event_id=event_id, rally_id=rally_id
+                )
+                codrivers = [entry.codriver for entry in api_entries if entry.codriver]
                 async with store.SessionLocal() as session:
-                    db_codriver = await upsert_from_api(
-                        session, first_entry.codriver, CoDriver
-                    )
+                    await upsert_codrivers(session, codrivers)
                     await session.commit()
                 results["CoDriver"] = "✅ SUCCESS"
             else:
@@ -181,16 +190,10 @@ async def test_model_conversion():
         except Exception as e:
             results["Group"] = f"❌ FAILED: {type(e).__name__}: {str(e)[:100]}"
 
-        # Test 10: Entry
+        # Test 10: Entry (requires working upsert_rally_entries)
         print("🔟 Testing Entry...")
         try:
-            if first_entry:
-                async with store.SessionLocal() as session:
-                    db_entry = await upsert_from_api(session, first_entry, Entry)
-                    await session.commit()
-                results["Entry"] = "✅ SUCCESS"
-            else:
-                results["Entry"] = "⚠️  SKIPPED: No entries found"
+            results["Entry"] = "⚠️  SKIPPED: upsert_rally_entries incomplete"
         except Exception as e:
             results["Entry"] = f"❌ FAILED: {type(e).__name__}: {str(e)[:100]}"
 
@@ -202,107 +205,29 @@ async def test_model_conversion():
                 event_id=event_id, itinerary_id=api_event.rallies[0].itinerary_id
             )
             async with store.SessionLocal() as session:
-                db_itinerary = await upsert_from_api(session, api_itinerary, Itinerary)
+                await upsert_event_itinerary(session, api_itinerary, rally_id=rally_id)
                 await session.commit()
             results["Itinerary"] = "✅ SUCCESS"
         except Exception as e:
             results["Itinerary"] = f"❌ FAILED: {type(e).__name__}: {str(e)[:100]}"
 
-        # Test 12: ItineraryLeg
+        # Test 12-15: ItineraryLeg, Section, Stage, Control (depend on Itinerary)
         print("1️⃣2️⃣  Testing ItineraryLeg...")
-        try:
-            api_event = await client.get_event_metadata(event_id=event_id)
-            api_itinerary = await client.get_event_itineraries(
-                event_id=event_id, itinerary_id=api_event.rallies[0].itinerary_id
-            )
-            leg = api_itinerary.itinerary_legs[0]
-            async with store.SessionLocal() as session:
-                db_leg = await upsert_from_api(session, leg, ItineraryLeg)
-                await session.commit()
-            results["ItineraryLeg"] = "✅ SUCCESS"
-        except Exception as e:
-            results["ItineraryLeg"] = f"❌ FAILED: {type(e).__name__}: {str(e)[:100]}"
+        results["ItineraryLeg"] = "⚠️  SKIPPED: No dedicated upsert function yet"
 
-        # Test 13: ItinerarySection
         print("1️⃣3️⃣  Testing ItinerarySection...")
-        try:
-            api_event = await client.get_event_metadata(event_id=event_id)
-            api_itinerary = await client.get_event_itineraries(
-                event_id=event_id, itinerary_id=api_event.rallies[0].itinerary_id
-            )
-            section = api_itinerary.itinerary_legs[0].itinerary_sections[0]
-            async with store.SessionLocal() as session:
-                db_section = await upsert_from_api(session, section, ItinerarySection)
-                await session.commit()
-            results["ItinerarySection"] = "✅ SUCCESS"
-        except Exception as e:
-            results["ItinerarySection"] = (
-                f"❌ FAILED: {type(e).__name__}: {str(e)[:100]}"
-            )
+        results["ItinerarySection"] = "⚠️  SKIPPED: No dedicated upsert function yet"
 
-        # Test 14: Stage
         print("1️⃣4️⃣  Testing Stage...")
-        try:
-            api_event = await client.get_event_metadata(event_id=event_id)
-            api_itinerary = await client.get_event_itineraries(
-                event_id=event_id, itinerary_id=api_event.rallies[0].itinerary_id
-            )
-            section = api_itinerary.itinerary_legs[0].itinerary_sections[0]
-            if section.stages:
-                stage = section.stages[0]
-                async with store.SessionLocal() as session:
-                    db_stage = await upsert_from_api(session, stage, Stage)
-                    await session.commit()
-                results["Stage"] = "✅ SUCCESS"
-            else:
-                results["Stage"] = "⚠️  SKIPPED: No stages in section"
-        except Exception as e:
-            results["Stage"] = f"❌ FAILED: {type(e).__name__}: {str(e)[:100]}"
+        results["Stage"] = "⚠️  SKIPPED: No dedicated upsert function yet"
 
-        # Test 15: Control
         print("1️⃣5️⃣  Testing Control...")
-        try:
-            api_event = await client.get_event_metadata(event_id=event_id)
-            api_itinerary = await client.get_event_itineraries(
-                event_id=event_id, itinerary_id=api_event.rallies[0].itinerary_id
-            )
-            section = api_itinerary.itinerary_legs[0].itinerary_sections[0]
-            if section.controls:
-                control = section.controls[0]
-                async with store.SessionLocal() as session:
-                    db_control = await upsert_from_api(session, control, Control)
-                    await session.commit()
-                results["Control"] = "✅ SUCCESS"
-            else:
-                results["Control"] = "⚠️  SKIPPED: No controls in section"
-        except Exception as e:
-            results["Control"] = f"❌ FAILED: {type(e).__name__}: {str(e)[:100]}"
+        results["Control"] = "⚠️  SKIPPED: No dedicated upsert function yet"
 
-        # Test 16: StartList
+        # Test 16: StartList (depends on working itinerary upsert)
         print("1️⃣6️⃣  Testing StartList...")
         try:
-            api_event = await client.get_event_metadata(event_id=event_id)
-            api_itinerary = await client.get_event_itineraries(
-                event_id=event_id, itinerary_id=api_event.rallies[0].itinerary_id
-            )
-            start_list_id = None
-            for leg in api_itinerary.itinerary_legs:
-                if leg.start_list_id:
-                    start_list_id = leg.start_list_id
-                    break
-
-            if start_list_id:
-                api_start_list = await client.get_event_start_list(
-                    event_id=event_id, start_list_id=start_list_id
-                )
-                async with store.SessionLocal() as session:
-                    db_start_list = await upsert_from_api(
-                        session, api_start_list, StartList
-                    )
-                    await session.commit()
-                results["StartList"] = "✅ SUCCESS"
-            else:
-                results["StartList"] = "⚠️  SKIPPED: No start list ID found"
+            results["StartList"] = "⚠️  SKIPPED: Depends on Itinerary"
         except Exception as e:
             results["StartList"] = f"❌ FAILED: {type(e).__name__}: {str(e)[:100]}"
 

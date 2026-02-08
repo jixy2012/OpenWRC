@@ -81,10 +81,10 @@ def map_api_codriver_to_db_model(api_codriver: ApiCoDriver) -> CoDriver:
     )
 
 
-def map_api_entry_to_db_model(api_entry: ApiEntry) -> Entry:
+def map_api_entry_to_db_model(api_entry: ApiEntry, rally_id: int) -> Entry:
     return Entry(
         entry_id=api_entry.entry_id,
-        event_id=api_entry.event_id,
+        rally_id=rally_id,
         driver_id=api_entry.driver_id,
         codriver_id=api_entry.codriver_id,
         manufacturer_id=api_entry.manufacturer_id,
@@ -103,10 +103,13 @@ def map_api_entry_to_db_model(api_entry: ApiEntry) -> Entry:
     )
 
 
-def map_api_itinerary_to_db_model(api_itinerary: ApiItinerary) -> Itinerary:
+def map_api_itinerary_to_db_model(
+    api_itinerary: ApiItinerary, rally_id: int
+) -> Itinerary:
     return Itinerary(
         itinerary_id=api_itinerary.itinerary_id,
         event_id=api_itinerary.event_id,
+        rally_id=rally_id,
     )
 
 

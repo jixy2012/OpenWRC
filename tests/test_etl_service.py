@@ -1,0 +1,138 @@
+"""
+Integration tests for WrcDataStore ETL functions.
+Uses real API JSON fixtures from scripts/api_test_outputs/.
+"""
+
+import json
+import os
+import pytest
+import pytest_asyncio
+
+from openwrc.models.external_api import ApiEventMetadata, ApiEntry
+from openwrc.storage.data_store_service import WrcDataStore
+
+
+FIXTURES_DIR = os.path.join(
+    os.path.dirname(__file__), "..", "scripts", "api_test_outputs"
+)
+
+
+def load_event_metadata() -> ApiEventMetadata:
+    with open(os.path.join(FIXTURES_DIR, "event_metadata.json")) as f:
+        return ApiEventMetadata(**json.load(f))
+
+
+def load_rally_entries() -> list[ApiEntry]:
+    with open(os.path.join(FIXTURES_DIR, "rally_entries.json")) as f:
+        return [ApiEntry(**entry) for entry in json.load(f)]
+
+
+@pytest_asyncio.fixture
+async def store(tmp_path):
+    db_path = str(tmp_path / "test.db")
+    store = WrcDataStore(db_path=db_path)
+    await store.init_db()
+    yield store
+    await store.engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_etl_event_metadata(store):
+    event_metadata = load_event_metadata()
+    await store.etl_event_metadata(event_metadata)
+
+    # verify data was written by reading it back
+    from sqlalchemy import text
+
+    async with store.SessionLocal() as session:
+        # check event
+        result = await session.execute(
+            text("SELECT * FROM events WHERE event_id = 635")
+        )
+        event = result.fetchone()
+        assert event is not None
+        assert event.name == "Rallye Monte Carlo"
+
+        # check rally
+        result = await session.execute(
+            text("SELECT * FROM rallies WHERE rally_id = 703")
+        )
+        rally = result.fetchone()
+        assert rally is not None
+        assert rally.event_id == 635
+
+        # check event classes
+        result = await session.execute(
+            text("SELECT COUNT(*) FROM event_classes WHERE event_id = 635")
+        )
+        count = result.scalar()
+        assert count == 6  # RC1, RC2, RC3, RC4, RC5, RGT
+
+        # check rally-to-event-class mappings
+        result = await session.execute(
+            text("SELECT COUNT(*) FROM rally_event_classes WHERE rally_id = 703")
+        )
+        count = result.scalar()
+        assert count == 6
+
+
+@pytest.mark.asyncio
+async def test_etl_event_entries(store):
+    # need event metadata first for FK dependencies
+    event_metadata = load_event_metadata()
+    await store.etl_event_metadata(event_metadata)
+
+    entries = load_rally_entries()
+    await store.etl_event_entries(entries)
+
+    from sqlalchemy import text
+
+    async with store.SessionLocal() as session:
+        # check countries were upserted
+        result = await session.execute(text("SELECT COUNT(*) FROM countries"))
+        count = result.scalar()
+        assert count > 0
+
+        # check manufacturers
+        result = await session.execute(
+            text("SELECT * FROM manufacturers WHERE manufacturer_id = 84")
+        )
+        manu = result.fetchone()
+        assert manu is not None
+        assert manu.name == "Toyota"
+
+        # check a driver (Person table)
+        result = await session.execute(
+            text("SELECT * FROM persons WHERE person_id = 21334")
+        )
+        driver = result.fetchone()
+        assert driver is not None
+        assert driver.last_name == "OGIER"
+
+        # check a codriver
+        result = await session.execute(
+            text("SELECT * FROM persons WHERE person_id = 21335")
+        )
+        codriver = result.fetchone()
+        assert codriver is not None
+        assert codriver.last_name == "LANDAIS"
+
+        # check entrants
+        result = await session.execute(
+            text("SELECT * FROM entrants WHERE entrant_id = 91")
+        )
+        entrant = result.fetchone()
+        assert entrant is not None
+        assert entrant.name == "TOYOTA GAZOO RACING WRT"
+
+        # check groups
+        result = await session.execute(
+            text("SELECT * FROM groups WHERE group_id = 152")
+        )
+        group = result.fetchone()
+        assert group is not None
+        assert group.name == "Rally1"
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
