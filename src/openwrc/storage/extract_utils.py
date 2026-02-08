@@ -2,36 +2,24 @@
 
 import asyncio
 from openwrc.clients.wrc_api_client import WrcApiClient
-from openwrc.models.external_api import ApiEntry, ApiEventMetadata, ApiItinerary
+from openwrc.models.external_api import ApiEntry, ApiEventMetadata
 
 
-async def get_event_info(
-    client: WrcApiClient, event_id: int
-) -> tuple[ApiEventMetadata, list[ApiItinerary], list[ApiEntry]]:
-    """
-    get event info, including metadata, itineraries, and entries
-    these objects have almost infinite ttl, rarely requires update
+def get_rally_ids(event_metadata: ApiEventMetadata) -> list[int]:
+    return [rally.rally_id for rally in event_metadata.rallies]
 
-    Args:
-        client (WrcApiClient): _description_
-        event_id (int): _description_
 
-    Returns:
-        tuple[ApiEventMetadata, list[ApiItinerary], list[ApiEntry]]: _description_
-    """
-    event_metadata = await client.get_event_metadata(event_id=event_id)
-    rally_ids = [rally.rally_id for rally in event_metadata.rallies]
-    itinerary_ids = [rally.itinerary_id for rally in event_metadata.rallies]
-    itineraries = await asyncio.gather(
-        *[
-            client.get_event_itineraries(event_id=event_id, itinerary_id=id)
-            for id in itinerary_ids
-        ]
-    )
+def get_rally_id_to_itinerary_id(event_metadata: ApiEventMetadata) -> dict[int, int]:
+    return {rally.rally_id: rally.itinerary_id for rally in event_metadata.rallies}
+
+
+async def get_flattened_rally_entries(
+    client: WrcApiClient, event_id: int, rally_ids: list[int]
+) -> list[ApiEntry]:
     composite_entries = await asyncio.gather(
         *[client.get_rally_entries(event_id=event_id, rally_id=id) for id in rally_ids]
     )
     flattened_entries = []
     for entries in composite_entries:
         flattened_entries.extend(entries)
-    return event_metadata, itineraries, flattened_entries
+    return flattened_entries

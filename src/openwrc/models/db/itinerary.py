@@ -1,5 +1,5 @@
 from datetime import datetime, date
-from sqlalchemy import String, ForeignKey
+from sqlalchemy import String, ForeignKey, Enum
 from enum import Enum as PyEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -139,7 +139,9 @@ class StartList(Base):
 
     # Start list info
     name: Mapped[str] = mapped_column(String(200))  # "Thursday"
-    published_status: Mapped[str] = mapped_column(String(50))  # "Published"
+    published_status: Mapped[StartListPublishStatus] = mapped_column(
+        Enum(StartListPublishStatus, native_enum=False)
+    )
 
 
 class StartListItem(Base):

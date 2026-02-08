@@ -14,6 +14,7 @@ from openwrc.storage.crud_utils import (
     upsert_countries,
     upsert_drivers,
     upsert_entrants,
+    upsert_entries,
     upsert_entry_event_classes,
     upsert_event_classes,
     upsert_event_itinerary,
@@ -26,7 +27,10 @@ from openwrc.storage.crud_utils import (
     upsert_rally_metadata,
     upsert_stages,
 )
-from openwrc.storage.extract_utils import get_event_info
+from openwrc.storage.extract_utils import (
+    get_rally_id_to_itinerary_id,
+    get_rally_ids,
+)
 from openwrc.storage.transform_utils import (
     transform_api_entries,
     transform_api_event_metadata,
@@ -51,22 +55,40 @@ class WrcDataStore:
         return self.SessionLocal()
 
     # top level orchastrator
-    async def etl_event_info(self, event_id: int) -> bool:
-        event_metadata, itineraries, entries = await get_event_info(
-            client=self.api_client, event_id=event_id
-        )
+    async def etl_event_info(self, event_id: int):
+        # work on the event itself
+        event_metadata = await self.api_client.get_event_metadata(event_id=event_id)
         await self.etl_event_metadata(event_metadata=event_metadata)
-        for itinerary in itineraries:
-            await self.etl_itinerary(itinerary=itinerary)
-        await self.etl_event_entries(api_entries=entries)
 
-    async def etl_itinerary(self, itinerary: ApiItinerary):
+        rally_ids = get_rally_ids(event_metadata=event_metadata)
+        rally_ids_to_itinerary_ids = get_rally_id_to_itinerary_id(
+            event_metadata=event_metadata
+        )
+
+        for rally_id, itinerary_id in rally_ids_to_itinerary_ids.items():
+            itinerary = await self.api_client.get_event_itineraries(
+                event_id=event_id, itinerary_id=itinerary_id
+            )
+            await self.etl_itinerary(itinerary=itinerary, rally_id=rally_id)
+
+        # etl the entires
+        for rally_id in rally_ids:
+            entries = await self.api_client.get_rally_entries(
+                event_id=event_id, rally_id=rally_id
+            )
+            await self.etl_event_entries(api_entries=entries, rally_id=rally_id)
+
+    async def etl_itinerary(self, itinerary: ApiItinerary, rally_id: int):
         legs, sections, section_id_to_controls, section_id_to_stages = (
             transform_api_itinerary(api_response=itinerary)
         )
         async with self.SessionLocal() as session:
-            await upsert_event_itinerary(session=session, api_response=itinerary)
-            await upsert_itinerary_legs(session=session, api_response=legs)
+            await upsert_event_itinerary(
+                session=session, api_response=itinerary, rally_id=rally_id
+            )
+            await upsert_itinerary_legs(
+                session=session, api_response=legs, event_id=itinerary.event_id
+            )
             await upsert_itinerary_sections(session=session, api_response=sections)
             for section_id, controls in section_id_to_controls.items():
                 await upsert_controls(
@@ -96,7 +118,7 @@ class WrcDataStore:
                 )
             await session.commit()
 
-    async def etl_event_entries(self, api_entries: ApiRallyEntries):
+    async def etl_event_entries(self, api_entries: ApiRallyEntries, rally_id: int):
         (
             countries,
             manufacturers,
@@ -119,4 +141,7 @@ class WrcDataStore:
                 await upsert_entry_event_classes(
                     session=session, event_class_ids=class_ids, entry_id=entry_id
                 )
+            await upsert_entries(
+                session=session, api_response=api_entries, rally_id=rally_id
+            )
             await session.commit()

@@ -83,7 +83,7 @@ async def test_etl_event_entries(store):
     await store.etl_event_metadata(event_metadata)
 
     entries = load_rally_entries()
-    await store.etl_event_entries(entries)
+    await store.etl_event_entries(entries, rally_id=703)
 
     from sqlalchemy import text
 
@@ -132,6 +132,61 @@ async def test_etl_event_entries(store):
         group = result.fetchone()
         assert group is not None
         assert group.name == "Rally1"
+
+
+@pytest.mark.asyncio
+async def test_etl_event_info_integration(tmp_path):
+    """Integration test that calls the real WRC API and runs the full ETL pipeline."""
+    db_path = str(tmp_path / "integration_test.db")
+    store = WrcDataStore(db_path=db_path)
+    await store.init_db()
+
+    try:
+        await store.etl_event_info(event_id=635)
+
+        from sqlalchemy import text
+
+        async with store.SessionLocal() as session:
+            # event metadata
+            result = await session.execute(
+                text("SELECT * FROM events WHERE event_id = 635")
+            )
+            event = result.fetchone()
+            assert event is not None
+            assert event.name == "Rallye Monte Carlo"
+
+            # rallies
+            result = await session.execute(
+                text("SELECT COUNT(*) FROM rallies WHERE event_id = 635")
+            )
+            assert result.scalar() >= 1
+
+            # itineraries
+            result = await session.execute(text("SELECT COUNT(*) FROM itineraries"))
+            assert result.scalar() >= 1
+
+            # stages
+            result = await session.execute(text("SELECT COUNT(*) FROM stages"))
+            assert result.scalar() > 0
+
+            # controls
+            result = await session.execute(text("SELECT COUNT(*) FROM controls"))
+            assert result.scalar() > 0
+
+            # entries
+            result = await session.execute(text("SELECT COUNT(*) FROM entries"))
+            assert result.scalar() > 0
+
+            # persons (drivers + codrivers)
+            result = await session.execute(text("SELECT COUNT(*) FROM persons"))
+            assert result.scalar() > 0
+
+            # countries
+            result = await session.execute(text("SELECT COUNT(*) FROM countries"))
+            assert result.scalar() > 0
+
+    finally:
+        await store.engine.dispose()
 
 
 if __name__ == "__main__":

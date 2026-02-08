@@ -193,7 +193,7 @@ async def upsert_event_itinerary(
 
 
 async def upsert_itinerary_legs(
-    session: AsyncSession, api_response: list[ApiItineraryLeg]
+    session: AsyncSession, api_response: list[ApiItineraryLeg], event_id: int
 ):
     async def try_upsert_leg(leg: ApiItineraryLeg):
         """_summary_
@@ -208,7 +208,7 @@ async def upsert_itinerary_legs(
                 session=session,
                 instance=StartList(
                     start_list_id=leg.start_list_id,
-                    event_id=api_response.event_id,
+                    event_id=event_id,
                     name="",
                     published_status=StartListPublishStatus.UNPUBLISHED,
                 ),
