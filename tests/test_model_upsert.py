@@ -8,14 +8,26 @@ import os
 from datetime import datetime
 from openwrc.clients.wrc_api_client import WrcApiClient
 from openwrc.storage.data_store_service import WrcDataStore
-from openwrc.storage.crud_utils import (
+from openwrc.storage.load_utils import (
     upsert_from_api,
     upsert_event_metadata,
     upsert_rally_metadata,
     upsert_event_itinerary,
-    upsert_rally_entries,
+    upsert_entries,
     upsert_drivers,
     upsert_codrivers,
+    upsert_entry_event_classes,
+    upsert_itinerary_legs,
+    upsert_itinerary_sections,
+    upsert_controls,
+    upsert_stages,
+    upsert_stage_results,
+    upsert_stage_time_results,
+    upsert_split_time_results,
+)
+from openwrc.storage.transform_utils import (
+    transform_api_entries,
+    transform_api_itinerary,
 )
 from openwrc.models.db.event import EventMetadata, RallyMetadata, EventClass, Entry
 from openwrc.models.db.entities import (
@@ -34,8 +46,10 @@ from openwrc.models.db.itinerary import (
     StartList,
     StartListItem,
 )
+import pytest
 
 
+@pytest.mark.asyncio
 async def test_model_conversion():
     """Test which API models can be directly converted to DB models."""
 
@@ -82,7 +96,7 @@ async def test_model_conversion():
         try:
             api_event = await client.get_event_metadata(event_id=event_id)
             async with store.SessionLocal() as session:
-                await upsert_rally_metadata(session, api_event)
+                await upsert_rally_metadata(session, api_event.rallies)
                 await session.commit()
             results["RallyMetadata"] = "✅ SUCCESS"
         except Exception as e:
@@ -190,39 +204,172 @@ async def test_model_conversion():
         except Exception as e:
             results["Group"] = f"❌ FAILED: {type(e).__name__}: {str(e)[:100]}"
 
-        # Test 10: Entry (requires working upsert_rally_entries)
+        # Test 10: Entry - use upsert_entries (prerequisites from Tests 1-9)
         print("🔟 Testing Entry...")
         try:
-            results["Entry"] = "⚠️  SKIPPED: upsert_rally_entries incomplete"
+            if first_entry:
+                (
+                    _,
+                    _,
+                    _,
+                    _,
+                    _,
+                    _,
+                    _,
+                    entry_id_to_event_class_ids,
+                ) = transform_api_entries(api_response=api_entries)
+                async with store.SessionLocal() as session:
+                    await upsert_entries(session, api_entries, rally_id=rally_id)
+                    for entry_id, class_ids in entry_id_to_event_class_ids.items():
+                        await upsert_entry_event_classes(
+                            session,
+                            event_class_ids=class_ids,
+                            entry_id=entry_id,
+                        )
+                    await session.commit()
+                results["Entry"] = "✅ SUCCESS"
+            else:
+                results["Entry"] = "⚠️  SKIPPED: No entries found"
         except Exception as e:
             results["Entry"] = f"❌ FAILED: {type(e).__name__}: {str(e)[:100]}"
 
-        # Test 11: Itinerary
+        # Test 11-15: Itinerary + legs, sections, stages, controls (full etl_itinerary flow)
         print("1️⃣1️⃣  Testing Itinerary...")
         try:
             api_event = await client.get_event_metadata(event_id=event_id)
             api_itinerary = await client.get_event_itineraries(
                 event_id=event_id, itinerary_id=api_event.rallies[0].itinerary_id
             )
+            legs, sections, section_id_to_controls, section_id_to_stages = (
+                transform_api_itinerary(api_response=api_itinerary)
+            )
             async with store.SessionLocal() as session:
                 await upsert_event_itinerary(session, api_itinerary, rally_id=rally_id)
+                await upsert_itinerary_legs(
+                    session, legs, event_id=api_itinerary.event_id
+                )
+                await upsert_itinerary_sections(session, sections)
+                for section_id, controls in section_id_to_controls.items():
+                    await upsert_controls(
+                        session,
+                        controls,
+                        itinerary_section_id=section_id,
+                    )
+                for section_id, stages in section_id_to_stages.items():
+                    await upsert_stages(
+                        session,
+                        stages,
+                        itinerary_section_id=section_id,
+                    )
                 await session.commit()
             results["Itinerary"] = "✅ SUCCESS"
+            results["ItineraryLeg"] = "✅ SUCCESS"
+            results["ItinerarySection"] = "✅ SUCCESS"
+            results["Stage"] = "✅ SUCCESS"
+            results["Control"] = "✅ SUCCESS"
         except Exception as e:
             results["Itinerary"] = f"❌ FAILED: {type(e).__name__}: {str(e)[:100]}"
+            results["ItineraryLeg"] = f"❌ FAILED: {type(e).__name__}: {str(e)[:100]}"
+            results["ItinerarySection"] = (
+                f"❌ FAILED: {type(e).__name__}: {str(e)[:100]}"
+            )
+            results["Stage"] = f"❌ FAILED: {type(e).__name__}: {str(e)[:100]}"
+            results["Control"] = f"❌ FAILED: {type(e).__name__}: {str(e)[:100]}"
 
-        # Test 12-15: ItineraryLeg, Section, Stage, Control (depend on Itinerary)
+        # Print progress for tests 12-15 (results already set above)
         print("1️⃣2️⃣  Testing ItineraryLeg...")
-        results["ItineraryLeg"] = "⚠️  SKIPPED: No dedicated upsert function yet"
-
         print("1️⃣3️⃣  Testing ItinerarySection...")
-        results["ItinerarySection"] = "⚠️  SKIPPED: No dedicated upsert function yet"
-
         print("1️⃣4️⃣  Testing Stage...")
-        results["Stage"] = "⚠️  SKIPPED: No dedicated upsert function yet"
-
         print("1️⃣5️⃣  Testing Control...")
-        results["Control"] = "⚠️  SKIPPED: No dedicated upsert function yet"
+
+        # Get first stage_id from itinerary for result tests (RallyStanding, StageTime, SplitTime)
+        stage_id = None
+        try:
+            api_event = await client.get_event_metadata(event_id=event_id)
+            api_itinerary = await client.get_event_itineraries(
+                event_id=event_id, itinerary_id=api_event.rallies[0].itinerary_id
+            )
+            for leg in api_itinerary.itinerary_legs:
+                for section in leg.itinerary_sections:
+                    if section.stages:
+                        stage_id = section.stages[0].stage_id
+                        break
+                if stage_id is not None:
+                    break
+        except Exception as e:
+            print(f"⚠️  Could not fetch itinerary for stage_id: {e}")
+
+        # Test 18: RallyStanding (upsert_stage_results with mapper)
+        print("1️⃣8️⃣  Testing RallyStanding...")
+        try:
+            if stage_id is None:
+                results["RallyStanding"] = "⚠️  SKIPPED: No stage in itinerary"
+            else:
+                api_stage_results = await client.get_event_stage_results(
+                    event_id=event_id, stage_id=stage_id, rally_id=rally_id
+                )
+                if not api_stage_results:
+                    results["RallyStanding"] = (
+                        "⚠️  SKIPPED: No results from API "
+                        f"(event={event_id}, stage={stage_id}, rally={rally_id})"
+                    )
+                else:
+                    async with store.SessionLocal() as session:
+                        await upsert_stage_results(
+                            session, api_stage_results, rally_id, stage_id
+                        )
+                        await session.commit()
+                    results["RallyStanding"] = "✅ SUCCESS"
+        except Exception as e:
+            results["RallyStanding"] = f"❌ FAILED: {type(e).__name__}: {str(e)}"
+
+        # Test 19: StageTime (upsert_stage_time_results with mapper)
+        print("1️⃣9️⃣  Testing StageTime...")
+        try:
+            if stage_id is None:
+                results["StageTime"] = "⚠️  SKIPPED: No stage in itinerary"
+            else:
+                api_stage_times = await client.get_event_stage_time_results(
+                    event_id=event_id, stage_id=stage_id, rally_id=rally_id
+                )
+                if not api_stage_times:
+                    results["StageTime"] = (
+                        "⚠️  SKIPPED: No results from API "
+                        f"(event={event_id}, stage={stage_id}, rally={rally_id})"
+                    )
+                else:
+                    async with store.SessionLocal() as session:
+                        await upsert_stage_time_results(
+                            session, api_stage_times, rally_id
+                        )
+                        await session.commit()
+                    results["StageTime"] = "✅ SUCCESS"
+        except Exception as e:
+            results["StageTime"] = f"❌ FAILED: {type(e).__name__}: {str(e)}"
+
+        # Test 20: SplitTime (upsert_split_time_results with mapper)
+        print("2️⃣0️⃣  Testing SplitTime...")
+        try:
+            if stage_id is None:
+                results["SplitTime"] = "⚠️  SKIPPED: No stage in itinerary"
+            else:
+                api_split_times = await client.get_rally_stage_split_time_results(
+                    event_id=event_id, rally_id=rally_id, stage_id=stage_id
+                )
+                if not api_split_times:
+                    results["SplitTime"] = (
+                        "⚠️  SKIPPED: No results from API "
+                        f"(event={event_id}, stage={stage_id}, rally={rally_id})"
+                    )
+                else:
+                    async with store.SessionLocal() as session:
+                        await upsert_split_time_results(
+                            session, api_split_times, stage_id
+                        )
+                        await session.commit()
+                    results["SplitTime"] = "✅ SUCCESS"
+        except Exception as e:
+            results["SplitTime"] = f"❌ FAILED: {type(e).__name__}: {str(e)}"
 
         # Test 16: StartList (depends on working itinerary upsert)
         print("1️⃣6️⃣  Testing StartList...")

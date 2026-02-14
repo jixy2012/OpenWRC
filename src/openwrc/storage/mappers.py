@@ -8,6 +8,7 @@ from openwrc.models.db.itinerary import (
     Stage,
     StartList,
 )
+from openwrc.models.db.result import RallyStanding, SplitTime, StageTime
 from openwrc.models.external_api import (
     ApiDriver,
     ApiCoDriver,
@@ -17,8 +18,11 @@ from openwrc.models.external_api import (
     ApiItinerarySection,
     ApiPerson,
     ApiRallyMetadata,
+    ApiResultEntry,
+    ApiSplitTimeEntry,
     ApiStage,
     ApiControl,
+    ApiStageTimeEntry,
     ApiStartList,
     ApiEventMetadata,
 )
@@ -159,4 +163,51 @@ def map_api_start_list_to_db_model(api_start_list: ApiStartList) -> StartList:
         event_id=api_start_list.event_id,
         published_status=api_start_list.published_status,
         name=api_start_list.name,
+    )
+
+
+def map_api_stage_result_to_db_model(
+    api_stage_result: ApiResultEntry, rally_id: int, stage_id: int
+) -> RallyStanding:
+    return RallyStanding(
+        rally_id=rally_id,
+        stage_id=stage_id,
+        entry_id=api_stage_result.entry_id,
+        position=api_stage_result.position,
+        stage_time_ms=api_stage_result.stage_time_ms,
+        penalty_time_ms=api_stage_result.penalty_time_ms,
+        total_time_ms=api_stage_result.total_time_ms,
+        diff_first_ms=api_stage_result.diff_first_ms,
+        diff_prev_ms=api_stage_result.diff_prev_ms,
+    )
+
+
+def map_api_stage_time_to_db_model(
+    api_stage_time: ApiStageTimeEntry, rally_id: int
+) -> StageTime:
+    return StageTime(
+        stage_id=api_stage_time.stage_id,
+        entry_id=api_stage_time.entry_id,
+        rally_id=rally_id,
+        elapsed_duration_ms=api_stage_time.elapsed_duration_ms,
+        position=api_stage_time.position,
+        diff_first_ms=api_stage_time.diff_first_ms,
+        diff_prev_ms=api_stage_time.diff_prev_ms,
+        status=api_stage_time.status,
+        source=api_stage_time.source,
+    )
+
+
+def map_api_split_time_to_db_model(
+    api_split_time: ApiSplitTimeEntry, stage_id: int
+) -> SplitTime:
+    return SplitTime(
+        split_point_time_id=api_split_time.split_point_time_id,
+        split_point_id=api_split_time.split_point_id,
+        stage_id=stage_id,
+        entry_id=api_split_time.entry_id,
+        start_date_time=api_split_time.start_date_time,
+        split_date_time=api_split_time.split_date_time,
+        stage_time_duration_ms=api_split_time.stage_time_duration_ms,
+        elapsed_duration_ms=api_split_time.elapsed_duration_ms,
     )

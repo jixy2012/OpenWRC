@@ -25,10 +25,10 @@ from openwrc.models.external_api import (
     ApiManufacturer,
     ApiRallyEntries,
     ApiRallyMetadata,
-    ApiRallyResults,
     ApiShakedownTimeResults,
     ApiSplitTimeResults,
     ApiStage,
+    ApiStageResults,
     ApiStageTimeResults,
     ApiStartList,
 )
@@ -43,6 +43,9 @@ from openwrc.storage.mappers import (
     map_api_itinerary_section_to_db_model,
     map_api_itinerary_to_db_model,
     map_api_rally_to_db_model,
+    map_api_split_time_to_db_model,
+    map_api_stage_result_to_db_model,
+    map_api_stage_time_to_db_model,
     map_api_stage_to_db_model,
 )
 
@@ -64,21 +67,12 @@ async def upsert_from_api(
     api_model: ApiT,
     db_model_class: Type[T],
     exclude: set[str] | None = None,
-    **extra_fields,
 ) -> T:
     """
-    Convenience wrapper that converts API model to DB model and upserts.
-
-    Args:
-        session: Database session
-        api_model: API model instance
-        db_model_class: DB model class to instantiate
-        exclude: Set of field names to exclude from model_dump (e.g., nested objects)
-        **extra_fields: Additional fields to add to the DB model (e.g., foreign keys)
+    Dumb wrapper: converts API model to DB model via model_dump and upserts.
+    Use exact API object; errors will surface missing or mismatched fields.
     """
     data = api_model.model_dump(exclude=exclude)
-    data.update(extra_fields)
-
     return await upsert_instance(session=session, instance=db_model_class(**data))
 
 
@@ -292,16 +286,41 @@ async def upsert_start_list(session: AsyncSession, api_response: ApiStartList):
 
 
 # results section TODO
-def upsert_rally_results(session: AsyncSession, api_response: ApiRallyResults):
-    pass
+async def upsert_stage_results(
+    session: AsyncSession, api_response: ApiStageResults, rally_id: int, stage_id: int
+):
+    for stage_result in api_response:
+        await upsert_instance(
+            session=session,
+            instance=map_api_stage_result_to_db_model(
+                api_stage_result=stage_result, rally_id=rally_id, stage_id=stage_id
+            ),
+        )
 
 
-def upsert_stage_time_results(session: AsyncSession, api_response: ApiStageTimeResults):
-    pass
+async def upsert_stage_time_results(
+    session: AsyncSession, api_response: ApiStageTimeResults, rally_id: int
+):
+    for stage_time in api_response:
+        await upsert_instance(
+            session=session,
+            instance=map_api_stage_time_to_db_model(
+                api_stage_time=stage_time,
+                rally_id=rally_id,
+            ),
+        )
 
 
-def upsert_split_time_results(session: AsyncSession, api_response: ApiSplitTimeResults):
-    pass
+async def upsert_split_time_results(
+    session: AsyncSession, api_response: ApiSplitTimeResults, stage_id: int
+):
+    for split_time in api_response:
+        await upsert_instance(
+            session=session,
+            instance=map_api_split_time_to_db_model(
+                api_split_time=split_time, stage_id=stage_id
+            ),
+        )
 
 
 def upsert_shakedown_results(
