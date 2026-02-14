@@ -13,9 +13,9 @@ def get_rally_id_to_itinerary_id(event_metadata: ApiEventMetadata) -> dict[int, 
     return {rally.rally_id: rally.itinerary_id for rally in event_metadata.rallies}
 
 
-async def get_flattened_rally_entries(
+async def get_rally_id_to_api_entries(
     client: WrcApiClient, event_id: int, rally_ids: list[int]
-) -> list[ApiEntry]:
+) -> dict[int, list[ApiEntry]]:
     composite_entries = await asyncio.gather(
         *[client.get_rally_entries(event_id=event_id, rally_id=id) for id in rally_ids]
     )

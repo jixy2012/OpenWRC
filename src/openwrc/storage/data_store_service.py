@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from openwrc.clients.wrc_api_client import WrcApiClient
 from openwrc.models.db.base import Base
 from openwrc.models.external_api import ApiEventMetadata, ApiItinerary, ApiRallyEntries
-from openwrc.storage.crud_utils import (
+from openwrc.storage.load_utils import (
     upsert_codrivers,
     upsert_controls,
     upsert_countries,
