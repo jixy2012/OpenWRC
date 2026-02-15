@@ -189,5 +189,28 @@ async def test_etl_event_info_integration(tmp_path):
         await store.engine.dispose()
 
 
+@pytest.mark.asyncio
+async def test_etl_event_timings(tmp_path):
+    """Integration test for etl_event_timings - populates rally_standings from stage results."""
+    db_path = str(tmp_path / "etl_timings_test.db")
+    store = WrcDataStore(db_path=db_path)
+    await store.init_db()
+
+    try:
+        event_id = 635
+        await store.etl_event_info(event_id=event_id)
+        await store.etl_event_timings(event_id=event_id)
+
+        from sqlalchemy import text
+
+        async with store.SessionLocal() as session:
+            result = await session.execute(text("SELECT COUNT(*) FROM rally_standings"))
+            count = result.scalar()
+            assert count > 0
+
+    finally:
+        await store.engine.dispose()
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

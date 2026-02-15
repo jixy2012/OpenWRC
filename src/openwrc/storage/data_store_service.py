@@ -3,11 +3,19 @@ SQL storage service for WRC data.
 Fetches from API and writes through to database.
 """
 
+import asyncio
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
 from openwrc.clients.wrc_api_client import WrcApiClient
 from openwrc.models.db.base import Base
-from openwrc.models.external_api import ApiEventMetadata, ApiItinerary, ApiRallyEntries
+from openwrc.models.db.event import RallyMetadata
+from openwrc.models.db.itinerary import Stage
+from openwrc.models.external_api import (
+    ApiEventMetadata,
+    ApiItinerary,
+    ApiRallyEntries,
+)
 from openwrc.storage.load_utils import (
     upsert_codrivers,
     upsert_controls,
@@ -25,9 +33,11 @@ from openwrc.storage.load_utils import (
     upsert_manufacturers,
     upsert_rally_event_classes,
     upsert_rally_metadata,
+    upsert_stage_results,
     upsert_stages,
 )
 from openwrc.storage.extract_utils import (
+    get_event_stage_results_with_context,
     get_rally_id_to_itinerary_id,
     get_rally_ids,
 )
@@ -145,3 +155,60 @@ class WrcDataStore:
                 session=session, api_response=api_entries, rally_id=rally_id
             )
             await session.commit()
+
+    async def etl_event_timings(self, event_id: int):
+        event_stages = await self.get_event_stages(event_id=event_id)
+        event_stage_ids = [stage.stage_id for stage in event_stages]
+        event_rallies = await self._get_event_rallies(event_id=event_id)
+        rally_ids = [rally.rally_id for rally in event_rallies]
+
+        # only support stage results
+        await self.etl_event_rally_stage_results(
+            event_id=event_id, stage_ids=event_stage_ids, rally_ids=rally_ids
+        )
+
+    async def etl_event_rally_stage_results(
+        self, event_id: int, stage_ids: list[int], rally_ids: list[int]
+    ):
+        futures = [
+            get_event_stage_results_with_context(
+                client=self.api_client,
+                event_id=event_id,
+                rally_id=rally_id,
+                stage_id=event_stage_id,
+            )
+            for event_stage_id in stage_ids
+            for rally_id in rally_ids
+        ]
+        stage_results = await asyncio.gather(*futures)
+        async with self.SessionLocal() as session:
+            for stage_result, rally_id, stage_id in stage_results:
+                await upsert_stage_results(
+                    session=session,
+                    api_response=stage_result,
+                    rally_id=rally_id,
+                    stage_id=stage_id,
+                )
+            await session.commit()
+
+    async def _get_event_stages(self, event_id: int) -> list[Stage]:
+        async with self.SessionLocal() as session:
+            result = await session.execute(
+                select(Stage).where(Stage.event_id == event_id)
+            )
+            stages = result.scalars().all()
+            return list(stages)
+
+    async def _get_event_rallies(self, event_id: int) -> list[RallyMetadata]:
+        async with self.SessionLocal() as session:
+            result = await session.execute(
+                select(RallyMetadata).where(RallyMetadata.event_id == event_id)
+            )
+            rallies = result.scalars().all()
+            return list(rallies)
+
+    async def get_event_stages(self, event_id: int) -> list[Stage]:
+        stages = await self._get_event_stages(event_id=event_id)
+        if not stages:
+            await self.etl_event_info(event_id=event_id)
+        return await self._get_event_stages(event_id=event_id)
