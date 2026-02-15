@@ -64,6 +64,10 @@ class WrcDataStore:
     async def get_session(self) -> AsyncSession:
         return self.SessionLocal()
 
+    async def etl_historical_event(self, event_id: int):
+        await self.etl_event_info(event_id=event_id)
+        await self.etl_event_timings(event_id=event_id)
+
     # top level orchastrator
     async def etl_event_info(self, event_id: int):
         # work on the event itself
@@ -157,6 +161,11 @@ class WrcDataStore:
             await session.commit()
 
     async def etl_event_timings(self, event_id: int):
+        """top level timings etl orchastrator
+
+        Args:
+            event_id (int): _description_
+        """
         event_stages = await self.get_event_stages(event_id=event_id)
         event_stage_ids = [stage.stage_id for stage in event_stages]
         event_rallies = await self._get_event_rallies(event_id=event_id)
