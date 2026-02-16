@@ -64,7 +64,7 @@ class LiveStreamService(BaseService):
         event_id, rally_id, stage_id = channel_id
         try:
             while True:
-                asyncio.sleep(STAGE_SPLIT_POLLER_SLEEP)
+                await asyncio.sleep(STAGE_SPLIT_POLLER_SLEEP)
                 # TODO: figure out if we need data transformation
                 split_point_results = (
                     await self.external_api_client.get_rally_stage_split_time_results(
@@ -80,19 +80,19 @@ class LiveStreamService(BaseService):
     async def _register_poll_task(self, channel_id: ChannelId):
         if self.poll_task_registry[channel_id]:
             return
-        self.poll_task_registry[channel_id] = self._poll_split_point_data(
-            channel_id=channel_id
-        )
+        task = self._poll_split_point_data(channel_id=channel_id)
+        await asyncio.create_task(task)
+        self.poll_task_registry[channel_id] = task
 
     async def subscribe(self, event_id: int, rally_id: int, stage_id: int):
         # register the subscriber
-        channel_id: ChannelId = [event_id, rally_id, stage_id]
+        channel_id: ChannelId = (event_id, rally_id, stage_id)
         queue = asyncio.Queue()
-        self._register_subscriber(channel_id=channel_id, queue=queue)
-        self._register_poll_task(channel_id=channel_id)
+        await self._register_subscriber(channel_id=channel_id, queue=queue)
+        await self._register_poll_task(channel_id=channel_id)
         try:
             while True:
-                data = queue.get()
+                data = await queue.get()
                 yield data
         finally:
             self._unregister_subscriber(channel_id=channel_id, queue=queue)
