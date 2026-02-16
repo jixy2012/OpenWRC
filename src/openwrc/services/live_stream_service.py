@@ -34,7 +34,9 @@ class LiveStreamService(BaseService):
     @property
     def poll_task_registry(self):
         if not self._poll_task_registry:
-            self._poll_task_registry: dict[ChannelId, asyncio.Task[any]] = {}
+            self._poll_task_registry: defaultdict[
+                ChannelId, asyncio.Task[any] | None
+            ] = defaultdict(None)
         return self._poll_task_registry
 
     def _register_subscriber(self, channel_id: ChannelId, queue: asyncio.Queue):
@@ -88,7 +90,7 @@ class LiveStreamService(BaseService):
         # register the subscriber
         channel_id: ChannelId = (event_id, rally_id, stage_id)
         queue = asyncio.Queue()
-        await self._register_subscriber(channel_id=channel_id, queue=queue)
+        self._register_subscriber(channel_id=channel_id, queue=queue)
         await self._register_poll_task(channel_id=channel_id)
         try:
             while True:
