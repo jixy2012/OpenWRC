@@ -1,137 +1,98 @@
-from datetime import datetime, timedelta, timezone
-from functools import cached_property
-from openwrc.clients.wrc_api_client import WrcApiClient
-from openwrc.exceptions.session_exceptions import (
-    SessionInputValidationException,
-    SessionDateOutOfRangeException,
-)
-from openwrc.models.external_api import ApiEventMetadata, ApiItineraryLeg
-from openwrc.services.event_service import EventInfoService
-from openwrc.services.result_service import RallyResultService
-import httpx
+from openwrc.exceptions.session_exceptions import SessionInputValidationException
+from openwrc.storage.database import WrcDatabase
+from openwrc.storage.query_service import WrcQueryService
 
 
 class WrcSession:
-    def __init__(self) -> None:
-        """
-        Start a persistent session to query a WRC event.
+    """
+    Event-scoped entry point for querying WRC data from the local DB.
 
-        Initializing the session:
-        - session identification
-            - you can use the raw event and rally id to start a session.
-            - for usability, we also allow specifying a session by year and location name. for example, for Monte-Carlo 2026, try WrcSession(year=2026, location='monte-carlo')
-        - rally event results
-            - by stage
-            - by split
-            - deltas
-        - rally event entries
-            - entries by class
-            - driver & co driver info
-        """
-        self.external_api_client = WrcApiClient()
-        self._rally_itinerary_by_day: dict[int, ApiItineraryLeg] | None = None
+    Resolves event and rally identity once at creation time; all query methods
+    use the resolved IDs so callers never have to pass them explicitly.
+
+    Initialization options:
+    - event_id: use the raw WRC event id directly
+    - name + optional year: resolve event by name (e.g. name="monte carlo", year=2025)
+
+    In both cases rally_id defaults to the main rally for the event.
+    """
+
+    def __init__(self, event_id: int, rally_id: int, query_service: WrcQueryService):
+        self.event_id = event_id
+        self.rally_id = rally_id
+        self._qs = query_service
 
     @classmethod
     async def create(
         cls,
         *,
         event_id: int | None = None,
-        rally_id: int | None = None,
+        name: str | None = None,
         year: int | None = None,
-        location: str | None = None,
+        rally_id: int | None = None,
+        db: WrcDatabase | None = None,
     ) -> "WrcSession":
-        """Factory for creating a session
+        qs = WrcQueryService(db or WrcDatabase())
 
-        Args:
-            event_id (int): _description_
-            rally_id (int): _description_
-            year (int): _description_
-            location (str): _description_
-
-        """
-        session = cls()
-        await session._start_session(
-            event_id=event_id, rally_id=rally_id, year=year, location=location
-        )
-        return session
-
-    async def _start_session(
-        self,
-        *,
-        event_id: int | None = None,
-        rally_id: int | None = None,
-        year: int | None = None,
-        location: str | None = None,
-    ) -> ApiEventMetadata:
-        # need both event id and rally id, or year and location
-        if year and location:
+        if event_id is None and name is None:
             raise SessionInputValidationException(
-                message="session via year and location is not yet supported"
+                message="Provide either event_id or name to start a session."
             )
-        elif event_id:
-            try:
-                self.event_metadata = await self.event_service.get_event_metadata(
-                    event_id=event_id
-                )
-                self.event_id = event_id
-            except httpx.HTTPStatusError:
+
+        if event_id is None:
+            event = await qs.get_event_by_name(name=name, year=year)
+            if event is None:
+                detail = f"year={year}" if year else "no year filter"
                 raise SessionInputValidationException(
-                    message=f"event id {event_id} does not map to a valid wrc event."
+                    message=f"No event found matching name='{name}' ({detail})."
                 )
+            event_id = event.event_id
+
+        resolved_rally_id: int
+        if rally_id is not None:
+            resolved_rally_id = rally_id
         else:
-            raise SessionInputValidationException(
-                message="Need either event id OR year and location"
-            )
-        if rally_id and rally_id not in [
-            rally.rally_id for rally in self.event_metadata.rallies
-        ]:
-            raise SessionInputValidationException(
-                message=f"Rally {rally_id} is not in event {event_id}"
-            )
-        self.rally_id = rally_id or self.event_metadata.rallies[0].rally_id
+            rally = await qs.get_default_rally_for_event(event_id=event_id)
+            if rally is None:
+                raise SessionInputValidationException(
+                    message=f"No rally found for event_id={event_id}."
+                )
+            resolved_rally_id = rally.rally_id
 
-        # set up some properties
-        self._rally_itinerary_by_day = (
-            await self.event_service.get_rally_itinerary_by_day(
-                event_id=self.event_id, rally_id=self.rally_id
+        return cls(event_id=event_id, rally_id=resolved_rally_id, query_service=qs)
+
+    async def split_times(
+        self, stage_id: int | None = None, stage_number: int | None = None
+    ):
+        if stage_id is None:
+            if stage_number is None:
+                raise SessionInputValidationException(
+                    message="Provide either stage_id or stage_number."
+                )
+            stage = await self._qs.get_stage_by_number(
+                event_id=self.event_id, number=stage_number
             )
+            if stage is None:
+                raise SessionInputValidationException(
+                    message=f"No stage found with number={stage_number} in event_id={self.event_id}."
+                )
+            stage_id = stage.stage_id
+        return await self._qs.get_split_times(rally_id=self.rally_id, stage_id=stage_id)
+
+    async def rally_standings(
+        self,
+        stage_id: int | None = None,
+        stage_number: int | None = None,
+    ):
+        if stage_number is not None:
+            stage = await self._qs.get_stage_by_number(
+                event_id=self.event_id, number=stage_number
+            )
+            if stage is None:
+                raise SessionInputValidationException(
+                    message=f"No stage found with number={stage_number} in event_id={self.event_id}."
+                )
+            stage_id = stage.stage_id
+        return await self._qs.get_rally_standings(
+            rally_id=self.rally_id, stage_id=stage_id
         )
-
-    @property
-    def rally_itinerary(self) -> dict[int, ApiItineraryLeg]:
-        return self._rally_itinerary_by_day
-
-    @cached_property
-    def event_service(self) -> EventInfoService:
-        return EventInfoService(self.external_api_client)
-
-    @cached_property
-    def result_service(self) -> RallyResultService:
-        return RallyResultService(self.external_api_client)
-
-    @property
-    def current_itinerary_leg_number(self) -> int:
-        cur_datetime = datetime.now(tz=timezone.utc)
-        if (
-            cur_datetime >= self.event_metadata.finish_date + timedelta(days=1)
-            or cur_datetime < self.event_metadata.start_date
-        ):
-            raise SessionDateOutOfRangeException(
-                cur_datetime,
-                self.event_metadata.start_date,
-                self.event_metadata.finish_date,
-            )
-        current_day = 1 + (
-            (cur_datetime - self.event_metadata.start_date) // timedelta(days=1)
-        )
-        if current_day not in self.rally_itinerary:
-            raise SessionDateOutOfRangeException(
-                cur_datetime,
-                self.event_metadata.start_date,
-                self.event_metadata.finish_date,
-            )
-        return current_day
-
-    @property
-    def get_latest_stage_order(self) -> int:
-        pass
