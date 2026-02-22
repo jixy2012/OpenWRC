@@ -199,11 +199,12 @@ def map_api_stage_time_to_db_model(
 
 
 def map_api_split_time_to_db_model(
-    api_split_time: ApiSplitTimeEntry, stage_id: int
+    api_split_time: ApiSplitTimeEntry, stage_id: int, rally_id: int
 ) -> SplitTime:
     return SplitTime(
         split_point_time_id=api_split_time.split_point_time_id,
         split_point_id=api_split_time.split_point_id,
+        rally_id=rally_id,
         stage_id=stage_id,
         entry_id=api_split_time.entry_id,
         start_date_time=api_split_time.start_date_time,
