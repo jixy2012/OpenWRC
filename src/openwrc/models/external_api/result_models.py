@@ -66,7 +66,7 @@ class ApiSplitTimeEntry(WrcExternalApiBaseModel):
 
     start_date_time: datetime = Field(description="Start time in UTC")
     stage_time_duration_ms: int | None = Field(
-        description="Stage time duration in milliseconds"
+        default=None, description="Stage time duration in milliseconds"
     )
     split_point_time_id: int = Field(
         description="Unique identifier for this split point time"
