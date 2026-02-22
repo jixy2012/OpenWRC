@@ -113,13 +113,14 @@ class SplitTime(Base):
 
     # Foreign keys
     split_point_id: Mapped[int]  # May need SplitPoint table later
+    rally_id: Mapped[int] = mapped_column(ForeignKey(RallyMetadata.rally_id))
     stage_id: Mapped[int] = mapped_column(ForeignKey(Stage.stage_id))
     entry_id: Mapped[int] = mapped_column(ForeignKey(Entry.entry_id))
 
     # Timing data
     start_date_time: Mapped[datetime]
     split_date_time: Mapped[datetime]
-    stage_time_duration_ms: Mapped[int]
+    stage_time_duration_ms: Mapped[int | None]
     elapsed_duration_ms: Mapped[int]
 
     # Indexes for common queries

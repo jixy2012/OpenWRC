@@ -2,7 +2,12 @@
 
 import asyncio
 from openwrc.clients.wrc_api_client import WrcApiClient
-from openwrc.models.external_api import ApiEntry, ApiEventMetadata, ApiStageResults
+from openwrc.models.external_api import (
+    ApiEntry,
+    ApiEventMetadata,
+    ApiSplitTimeResults,
+    ApiStageResults,
+)
 
 
 def get_rally_ids(event_metadata: ApiEventMetadata) -> list[int]:
@@ -29,6 +34,15 @@ async def get_event_stage_results_with_context(
     client: WrcApiClient, event_id: int, rally_id: int, stage_id: int
 ) -> tuple[ApiStageResults, int, int]:
     results = await client.get_event_stage_results(
+        event_id=event_id, rally_id=rally_id, stage_id=stage_id
+    )
+    return (results, rally_id, stage_id)
+
+
+async def get_event_stage_split_times_with_context(
+    client: WrcApiClient, event_id: int, rally_id: int, stage_id: int
+) -> tuple[ApiSplitTimeResults, int, int]:
+    results = await client.get_rally_stage_split_time_results(
         event_id=event_id, rally_id=rally_id, stage_id=stage_id
     )
     return (results, rally_id, stage_id)

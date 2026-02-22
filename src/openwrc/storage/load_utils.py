@@ -312,13 +312,16 @@ async def upsert_stage_time_results(
 
 
 async def upsert_split_time_results(
-    session: AsyncSession, api_response: ApiSplitTimeResults, stage_id: int
+    session: AsyncSession,
+    api_response: ApiSplitTimeResults,
+    stage_id: int,
+    rally_id: int,
 ):
     for split_time in api_response:
         await upsert_instance(
             session=session,
             instance=map_api_split_time_to_db_model(
-                api_split_time=split_time, stage_id=stage_id
+                api_split_time=split_time, stage_id=stage_id, rally_id=rally_id
             ),
         )
 

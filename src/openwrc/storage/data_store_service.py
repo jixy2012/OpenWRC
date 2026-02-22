@@ -4,6 +4,7 @@ Fetches from API and writes through to database.
 """
 
 import asyncio
+from contextlib import asynccontextmanager
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
@@ -33,11 +34,13 @@ from openwrc.storage.load_utils import (
     upsert_manufacturers,
     upsert_rally_event_classes,
     upsert_rally_metadata,
+    upsert_split_time_results,
     upsert_stage_results,
     upsert_stages,
 )
 from openwrc.storage.extract_utils import (
     get_event_stage_results_with_context,
+    get_event_stage_split_times_with_context,
     get_rally_id_to_itinerary_id,
     get_rally_ids,
 )
@@ -56,13 +59,22 @@ class WrcDataStore:
             bind=self.engine, class_=AsyncSession, expire_on_commit=False
         )
         self.api_client = api_client or WrcApiClient()
+        self._db_initialized = False
+
+    async def _ensure_db(self):
+        if not self._db_initialized:
+            async with self.engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all, checkfirst=True)
+            self._db_initialized = True
 
     async def init_db(self):
-        async with self.engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+        await self._ensure_db()
 
-    async def get_session(self) -> AsyncSession:
-        return self.SessionLocal()
+    @asynccontextmanager
+    async def session(self):
+        await self._ensure_db()
+        async with self.SessionLocal() as s:
+            yield s
 
     async def etl_historical_event(self, event_id: int):
         await self.etl_event_info(event_id=event_id)
@@ -96,7 +108,7 @@ class WrcDataStore:
         legs, sections, section_id_to_controls, section_id_to_stages = (
             transform_api_itinerary(api_response=itinerary)
         )
-        async with self.SessionLocal() as session:
+        async with self.session() as session:
             await upsert_event_itinerary(
                 session=session, api_response=itinerary, rally_id=rally_id
             )
@@ -122,7 +134,7 @@ class WrcDataStore:
         rallies, event_classes, rally_to_class_ids = transform_api_event_metadata(
             api_response=event_metadata
         )
-        async with self.SessionLocal() as session:
+        async with self.session() as session:
             await upsert_event_metadata(session=session, api_response=event_metadata)
             await upsert_rally_metadata(session=session, api_response=rallies)
             await upsert_event_classes(session=session, api_response=event_classes)
@@ -143,7 +155,7 @@ class WrcDataStore:
             event_classes,
             entry_id_to_event_class_ids,
         ) = transform_api_entries(api_response=api_entries)
-        async with self.SessionLocal() as session:
+        async with self.session() as session:
             await upsert_countries(session=session, api_response=countries)
             await upsert_manufacturers(session=session, api_response=manufacturers)
             await upsert_entrants(session=session, api_response=entrants)
@@ -171,8 +183,11 @@ class WrcDataStore:
         event_rallies = await self._get_event_rallies(event_id=event_id)
         rally_ids = [rally.rally_id for rally in event_rallies]
 
-        # only support stage results
+        # only support stage results.
         await self.etl_event_rally_stage_results(
+            event_id=event_id, stage_ids=event_stage_ids, rally_ids=rally_ids
+        )
+        await self.etl_event_split_times(
             event_id=event_id, stage_ids=event_stage_ids, rally_ids=rally_ids
         )
 
@@ -190,7 +205,7 @@ class WrcDataStore:
             for rally_id in rally_ids
         ]
         stage_results = await asyncio.gather(*futures)
-        async with self.SessionLocal() as session:
+        async with self.session() as session:
             for stage_result, rally_id, stage_id in stage_results:
                 await upsert_stage_results(
                     session=session,
@@ -201,23 +216,44 @@ class WrcDataStore:
             await session.commit()
 
     async def _get_event_stages(self, event_id: int) -> list[Stage]:
-        async with self.SessionLocal() as session:
+        async with self.session() as session:
             result = await session.execute(
                 select(Stage).where(Stage.event_id == event_id)
             )
             stages = result.scalars().all()
-            return list(stages)
-
-    async def _get_event_rallies(self, event_id: int) -> list[RallyMetadata]:
-        async with self.SessionLocal() as session:
-            result = await session.execute(
-                select(RallyMetadata).where(RallyMetadata.event_id == event_id)
-            )
-            rallies = result.scalars().all()
-            return list(rallies)
+            return list[Stage](stages)
 
     async def get_event_stages(self, event_id: int) -> list[Stage]:
         stages = await self._get_event_stages(event_id=event_id)
         if not stages:
             await self.etl_event_info(event_id=event_id)
         return await self._get_event_stages(event_id=event_id)
+
+    async def _get_event_rallies(self, event_id: int) -> list[RallyMetadata]:
+        async with self.session() as session:
+            result = await session.execute(
+                select(RallyMetadata).where(RallyMetadata.event_id == event_id)
+            )
+            rallies = result.scalars().all()
+            return list[RallyMetadata](rallies)
+
+    async def etl_event_split_times(
+        self, event_id: int, stage_ids: list[int], rally_ids: list[int]
+    ) -> None:
+        futures = [
+            get_event_stage_split_times_with_context(
+                self.api_client, event_id=event_id, rally_id=rally_id, stage_id=stage_id
+            )
+            for rally_id in rally_ids
+            for stage_id in stage_ids
+        ]
+        split_time_results = await asyncio.gather(*futures)
+        async with self.session() as session:
+            for split_time_result, rally_id, stage_id in split_time_results:
+                await upsert_split_time_results(
+                    session=session,
+                    api_response=split_time_result,
+                    stage_id=stage_id,
+                    rally_id=rally_id,
+                )
+            await session.commit()
