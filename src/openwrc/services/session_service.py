@@ -1,6 +1,10 @@
+from datetime import date
+from zoneinfo import ZoneInfo
+
 from openwrc.exceptions.session_exceptions import SessionInputValidationException
 from openwrc.storage.database import WrcDatabase
 from openwrc.storage.query_service import WrcQueryService
+from openwrc.utils.datetime_utils import event_tz
 
 
 class WrcSession:
@@ -17,9 +21,20 @@ class WrcSession:
     In both cases rally_id defaults to the main rally for the event.
     """
 
-    def __init__(self, event_id: int, rally_id: int, query_service: WrcQueryService):
+    def __init__(
+        self,
+        event_id: int,
+        rally_id: int,
+        query_service: WrcQueryService,
+        event_start_date: date,
+        event_finish_date: date,
+        event_timezone: ZoneInfo,
+    ):
         self.event_id = event_id
         self.rally_id = rally_id
+        self.event_start_date = event_start_date
+        self.event_finish_date = event_finish_date
+        self.event_timezone = event_timezone
         self._qs = query_service
 
     @classmethod
@@ -46,7 +61,17 @@ class WrcSession:
                 raise SessionInputValidationException(
                     message=f"No event found matching name='{name}' ({detail})."
                 )
-            event_id = event.event_id
+        else:
+            event = await qs.get_event_by_id(event_id=event_id)
+            if event is None:
+                raise SessionInputValidationException(
+                    message=f"No event found with event_id={event_id}."
+                )
+
+        event_id = event.event_id
+        event_start_date = event.start_date.date()
+        event_finish_date = event.finish_date.date()
+        event_timezone = event_tz(event.time_zone_id)
 
         resolved_rally_id: int
         if rally_id is not None:
@@ -59,7 +84,14 @@ class WrcSession:
                 )
             resolved_rally_id = rally.rally_id
 
-        return cls(event_id=event_id, rally_id=resolved_rally_id, query_service=qs)
+        return cls(
+            event_id=event_id,
+            rally_id=resolved_rally_id,
+            query_service=qs,
+            event_start_date=event_start_date,
+            event_finish_date=event_finish_date,
+            event_timezone=event_timezone,
+        )
 
     async def split_times(
         self, stage_id: int | None = None, stage_number: int | None = None

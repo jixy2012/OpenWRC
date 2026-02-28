@@ -4,10 +4,12 @@ Exposes common query patterns against the local DB.
 All methods take explicit IDs; see WrcSession for higher-level event-scoped access.
 """
 
+from datetime import date
+
 from sqlalchemy import select
 
-from openwrc.models.db.event import EventMetadata, RallyMetadata
-from openwrc.models.db.itinerary import Stage
+from openwrc.models.db.event import Entry, EventMetadata, RallyMetadata
+from openwrc.models.db.itinerary import ItineraryLeg, ItinerarySection, Stage
 from openwrc.models.db.result import RallyStanding, SplitTime
 from openwrc.storage.database import WrcDatabase
 
@@ -16,6 +18,13 @@ class WrcQueryService:
 
     def __init__(self, db: WrcDatabase) -> None:
         self._db = db
+
+    async def get_event_by_id(self, event_id: int) -> EventMetadata | None:
+        """Return an event by its primary key."""
+        stmt = select(EventMetadata).where(EventMetadata.event_id == event_id)
+        async with self._db.session() as session:
+            result = await session.execute(stmt)
+            return result.scalar_one_or_none()
 
     async def get_event_by_name(
         self, name: str, year: int | None = None
@@ -48,6 +57,61 @@ class WrcQueryService:
             result = await session.execute(stmt)
             return result.scalars().first()
 
+    async def get_stages_for_event(self, event_id: int) -> list[Stage]:
+        """Return all stages for a given event, ordered by stage number."""
+        stmt = select(Stage).where(Stage.event_id == event_id).order_by(Stage.number)
+        async with self._db.session() as session:
+            result = await session.execute(stmt)
+            return list(result.scalars().all())
+
+    async def get_stages_for_event_by_date(
+        self, event_id: int, leg_date: date
+    ) -> list[Stage]:
+        """Return all stages on a given leg date for an event, ordered by stage number.
+
+        Joins Stage → ItinerarySection → ItineraryLeg to resolve the date.
+        """
+        stmt = (
+            select(Stage)
+            .join(
+                ItinerarySection,
+                Stage.itinerary_section_id == ItinerarySection.itinerary_section_id,
+            )
+            .join(
+                ItineraryLeg,
+                ItinerarySection.itinerary_leg_id == ItineraryLeg.itinerary_leg_id,
+            )
+            .where(Stage.event_id == event_id, ItineraryLeg.leg_date == leg_date)
+            .order_by(Stage.number)
+        )
+        async with self._db.session() as session:
+            result = await session.execute(stmt)
+            return list(result.scalars().all())
+
+    async def get_stages_for_event_by_leg_order(
+        self, event_id: int, leg_order: int
+    ) -> list[Stage]:
+        """Return all stages in a given leg (by its order index) for an event, ordered by stage number.
+
+        Joins Stage → ItinerarySection → ItineraryLeg to resolve the leg order.
+        """
+        stmt = (
+            select(Stage)
+            .join(
+                ItinerarySection,
+                Stage.itinerary_section_id == ItinerarySection.itinerary_section_id,
+            )
+            .join(
+                ItineraryLeg,
+                ItinerarySection.itinerary_leg_id == ItineraryLeg.itinerary_leg_id,
+            )
+            .where(Stage.event_id == event_id, ItineraryLeg.order == leg_order)
+            .order_by(Stage.number)
+        )
+        async with self._db.session() as session:
+            result = await session.execute(stmt)
+            return list(result.scalars().all())
+
     async def get_stage_by_number(self, event_id: int, number: int) -> Stage | None:
         """Find a stage by its number within an event (e.g. number=5 → SS5)."""
         stmt = select(Stage).where(
@@ -64,6 +128,13 @@ class WrcQueryService:
             SplitTime.rally_id == rally_id,
             SplitTime.stage_id == stage_id,
         )
+        async with self._db.session() as session:
+            result = await session.execute(stmt)
+            return list(result.scalars().all())
+
+    async def get_rally_entries(self, rally_id: int) -> list[Entry]:
+        """Return all entries for a given rally."""
+        stmt = select(Entry).where(Entry.rally_id == rally_id)
         async with self._db.session() as session:
             result = await session.execute(stmt)
             return list(result.scalars().all())
