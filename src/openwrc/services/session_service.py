@@ -2,6 +2,8 @@ from datetime import date
 from zoneinfo import ZoneInfo
 
 from openwrc.exceptions.session_exceptions import SessionInputValidationException
+from openwrc.models.db.event import Entry, EventMetadata
+from openwrc.models.db.itinerary import Stage
 from openwrc.storage.database import WrcDatabase
 from openwrc.storage.query_service import WrcQueryService
 from openwrc.utils.datetime_utils import event_tz
@@ -36,6 +38,20 @@ class WrcSession:
         self.event_finish_date = event_finish_date
         self.event_timezone = event_timezone
         self._qs = query_service
+
+    @classmethod
+    async def list_available_years(cls, db: WrcDatabase | None = None) -> list[int]:
+        """Return distinct years for which events are stored in the local DB."""
+        qs = WrcQueryService(db or WrcDatabase())
+        return await qs.get_available_years()
+
+    @classmethod
+    async def list_events_for_year(
+        cls, year: int, db: WrcDatabase | None = None
+    ) -> list[EventMetadata]:
+        """Return all events stored for a given year, ordered by start date."""
+        qs = WrcQueryService(db or WrcDatabase())
+        return await qs.get_events_for_year(year=year)
 
     @classmethod
     async def create(
@@ -92,6 +108,14 @@ class WrcSession:
             event_finish_date=event_finish_date,
             event_timezone=event_timezone,
         )
+
+    async def entries(self) -> list[Entry]:
+        """Return all entries for this rally."""
+        return await self._qs.get_rally_entries(rally_id=self.rally_id)
+
+    async def stages(self) -> list[Stage]:
+        """Return all stages for this event, ordered by stage number."""
+        return await self._qs.get_stages_for_event(event_id=self.event_id)
 
     async def split_times(
         self, stage_id: int | None = None, stage_number: int | None = None

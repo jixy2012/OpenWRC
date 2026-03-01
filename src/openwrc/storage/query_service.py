@@ -6,7 +6,7 @@ All methods take explicit IDs; see WrcSession for higher-level event-scoped acce
 
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import distinct, extract, select
 
 from openwrc.models.db.event import Entry, EventMetadata, RallyMetadata
 from openwrc.models.db.itinerary import ItineraryLeg, ItinerarySection, Stage
@@ -18,6 +18,26 @@ class WrcQueryService:
 
     def __init__(self, db: WrcDatabase) -> None:
         self._db = db
+
+    async def get_available_years(self) -> list[int]:
+        """Return distinct years for which events exist, in ascending order."""
+        stmt = select(distinct(extract("year", EventMetadata.start_date))).order_by(
+            extract("year", EventMetadata.start_date)
+        )
+        async with self._db.session() as session:
+            result = await session.execute(stmt)
+            return [int(row) for row in result.scalars().all()]
+
+    async def get_events_for_year(self, year: int) -> list[EventMetadata]:
+        """Return all events for a given year, ordered by start date."""
+        stmt = (
+            select(EventMetadata)
+            .where(extract("year", EventMetadata.start_date) == year)
+            .order_by(EventMetadata.start_date)
+        )
+        async with self._db.session() as session:
+            result = await session.execute(stmt)
+            return list(result.scalars().all())
 
     async def get_event_by_id(self, event_id: int) -> EventMetadata | None:
         """Return an event by its primary key."""

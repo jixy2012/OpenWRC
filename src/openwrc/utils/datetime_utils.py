@@ -9,6 +9,24 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 
+def ms_to_time_str(ms: int | None) -> str | None:
+    """Format a millisecond duration as H:MM:SS.s or MM:SS.s.
+
+    Returns None when ms is None (e.g. retired driver with no time).
+    Hours are only included when the duration is >= 1 hour.
+    """
+    if ms is None:
+        return None
+    total_tenths = ms // 100
+    hours = total_tenths // 36000
+    minutes = (total_tenths % 36000) // 600
+    seconds = (total_tenths % 600) // 10
+    tenths = total_tenths % 10
+    if hours > 0:
+        return f"{hours}:{minutes:02d}:{seconds:02d}.{tenths}"
+    return f"{minutes}:{seconds:02d}.{tenths}"
+
+
 def to_tz(dt: datetime, tz: ZoneInfo) -> datetime:
     """Convert a UTC-aware datetime to the given timezone.
 
