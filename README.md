@@ -54,12 +54,3 @@ uv pip install -e .
 **Populate the local database** by running the data store service for the events you want. See `src/openwrc/storage/data_store_service.py`.
 
 ---
-
-## Running the CLI
-
-```bash
-python -m cli
-```
-
-The CLI will show all years for which events are stored locally, walk through event selection, then offer options to display data, since as rally standings and stage results.
----
