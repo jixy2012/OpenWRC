@@ -13,8 +13,6 @@ from rich.table import Table
 from openwrc.services.session_service import WrcSession
 from openwrc.utils.datetime_utils import ms_to_time_str
 
-_DATA_TYPES = ["Standings", "Split Times", "Exit"]
-
 
 async def main() -> None:
     console = Console()
@@ -38,19 +36,21 @@ async def main() -> None:
 
     session = await WrcSession.create(event_id=event.event_id)
 
+    actions = {
+        "Standings": _show_standings,
+        "Split Times": _show_split_times,
+    }
+
     while True:
         console.rule(f"[bold]{event.name} {year}[/]")
-        data_type = await questionary.select(
-            "What would you like to see?", choices=_DATA_TYPES
+        label = await questionary.select(
+            "What would you like to see?", choices=[*actions, "Exit"]
         ).ask_async()
 
-        if data_type is None or data_type == "Exit":
+        if label is None or label == "Exit":
             break
         try:
-            if data_type == "Standings":
-                await _show_standings(session, console)
-            elif data_type == "Split Times":
-                await _show_split_times(session, console)
+            await actions[label](session, console)
         except Exception as e:
             console.print(f"[red]Error:[/] {e}")
 
