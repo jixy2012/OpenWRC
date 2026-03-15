@@ -114,7 +114,7 @@ class ApiEntry(WrcExternalApiBaseModel):
     # Optional fields
     pbf: Optional[str] = Field(default=None)
     drive: Optional[str] = Field(default=None)
-    tags: list[str] = Field(default_factory=list)
+    tags: list[dict] = Field(default_factory=list)
 
 
 # Type alias for list of entries

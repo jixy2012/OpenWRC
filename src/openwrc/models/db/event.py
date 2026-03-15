@@ -96,7 +96,7 @@ class Entry(Base):
     # Optional fields
     pbf: Mapped[str | None] = mapped_column(String(50))
     drive: Mapped[str | None] = mapped_column(String(50))
-    tags: Mapped[list[str] | None] = mapped_column(JSON)  # Store as JSON array
+    tags: Mapped[list | None] = mapped_column(JSON)
 
 
 class EntryEventClass(Base):
