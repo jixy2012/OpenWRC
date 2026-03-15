@@ -24,27 +24,39 @@ class DataSource(PyEnum):
     DEFAULT = "Default"
     MANUAL = "Manual"
     CORRECTED = "Corrected"
+    ASSESSED = "Assessed"
 
 
 class StageTime(Base):
-    """Individual driver performance on a specific stage"""
+    """Individual driver performance on a specific stage.
+
+    One row per (entry, stage). Records the raw stage time — how long the entry
+    took to complete that single stage, independent of cumulative rally totals.
+
+    Source: /{event_id}/stages/{stage_id}/stagetimes.json
+    This is the same value as split_times.stage_time_duration_ms (which is
+    denormalized onto every split row for that entry), and equals
+    FlyingFinish controlTime - StageStart controlTime for the same entry.
+    """
 
     __tablename__ = "stage_times"
 
-    # Composite PK: one record per (stage, driver)
+    # Composite PK: one record per (stage, entry)
     stage_id: Mapped[int] = mapped_column(ForeignKey(Stage.stage_id), primary_key=True)
     entry_id: Mapped[int] = mapped_column(ForeignKey(Entry.entry_id), primary_key=True)
 
-    # Denormalized for query efficiency
     rally_id: Mapped[int] = mapped_column(ForeignKey(RallyMetadata.rally_id))
 
-    # Performance data
+    # Time from stage start to flying finish for this entry, in ms.
+    # None if the entry did not complete the stage (see status).
     elapsed_duration_ms: Mapped[int | None]
+    # Stage position (rank among entries on this stage only, not overall)
     position: Mapped[int | None]
+    # Gap to the stage winner, in ms. None if this entry is the stage winner.
     diff_first_ms: Mapped[int | None]
+    # Gap to the entry ranked one position ahead on this stage, in ms.
     diff_prev_ms: Mapped[int | None]
 
-    # Metadata
     status: Mapped[StageStatus] = mapped_column(Enum(StageStatus))
     source: Mapped[str] = mapped_column(String(50))
 
@@ -56,23 +68,36 @@ class StageTime(Base):
 
 
 class RallyStanding(Base):
-    """Overall rally standings after each stage"""
+    """Overall rally standings for an entry after each completed stage.
+
+    One row per (rally, stage, entry) — a snapshot of the overall standings
+    at each point in the rally. All time fields are CUMULATIVE from the start
+    of the rally, not per-stage.
+
+    Source: /{event_id}/stages/{stage_id}/results.json
+    """
 
     __tablename__ = "rally_standings"
 
-    # Composite PK: standing after specific stage
     rally_id: Mapped[int] = mapped_column(
         ForeignKey(RallyMetadata.rally_id), primary_key=True
     )
     stage_id: Mapped[int] = mapped_column(ForeignKey(Stage.stage_id), primary_key=True)
     entry_id: Mapped[int] = mapped_column(ForeignKey(Entry.entry_id), primary_key=True)
 
-    # Cumulative data at this point in the rally
+    # Overall position in the rally after this stage
     position: Mapped[int | None]
+    # Cumulative competitive stage time (sum of all stage elapsed times so far), in ms.
+    # Does NOT include penalties. To get individual stage time, diff consecutive
+    # stage_time_ms values for the same entry ordered by stage number.
     stage_time_ms: Mapped[int]
+    # Cumulative penalty time applied to this entry so far, in ms
     penalty_time_ms: Mapped[int]
+    # stage_time_ms + penalty_time_ms — the official total used for classification
     total_time_ms: Mapped[int]
+    # Gap to the overall rally leader at this point, in ms. None if this entry leads.
     diff_first_ms: Mapped[int | None]
+    # Gap to the entry ranked one position ahead overall, in ms.
     diff_prev_ms: Mapped[int | None]
 
     # Indexes for common queries
@@ -104,23 +129,34 @@ class ShakedownTime(Base):
 
 
 class SplitTime(Base):
-    """Intermediate timing points within stages"""
+    """Timing gate records within a stage for each entry.
+
+    One row per (entry, split point). Split points are intermediate timing
+    gates placed along the stage route — they do NOT include the stage finish.
+    To get the stage finish time use stage_times.elapsed_duration_ms.
+
+    Source: /{event_id}/stages/{stage_id}/splittimes.json
+    """
 
     __tablename__ = "split_times"
 
-    # Primary key
     split_point_time_id: Mapped[int] = mapped_column(primary_key=True)
 
-    # Foreign keys
-    split_point_id: Mapped[int]  # May need SplitPoint table later
+    # Opaque ID for the split point. No SplitPoint table exists yet so there is
+    # no distance or ordering metadata. Sort by min(elapsed_duration_ms) across
+    # entries to approximate physical order along the stage.
+    split_point_id: Mapped[int]
     rally_id: Mapped[int] = mapped_column(ForeignKey(RallyMetadata.rally_id))
     stage_id: Mapped[int] = mapped_column(ForeignKey(Stage.stage_id))
     entry_id: Mapped[int] = mapped_column(ForeignKey(Entry.entry_id))
 
-    # Timing data
+    # Wall clock UTC time when this entry started the stage
     start_date_time: Mapped[datetime]
+    # Wall clock UTC time when this entry passed this split point
     split_date_time: Mapped[datetime]
-    stage_time_duration_ms: Mapped[int | None]
+    # CUMULATIVE time from stage start to this split point, in ms.
+    # NOT a per-segment duration. To get segment time, diff consecutive
+    # elapsed_duration_ms values for the same entry ordered by elapsed value.
     elapsed_duration_ms: Mapped[int]
 
     # Indexes for common queries

@@ -18,6 +18,7 @@ from openwrc.storage.database import WrcDatabase
 from openwrc.storage.extract_utils import (
     get_event_stage_results_with_context,
     get_event_stage_split_times_with_context,
+    get_event_stage_times_with_context,
     get_rally_id_to_itinerary_id,
     get_rally_ids,
 )
@@ -40,6 +41,7 @@ from openwrc.storage.load_utils import (
     upsert_rally_metadata,
     upsert_split_time_results,
     upsert_stage_results,
+    upsert_stage_time_results,
     upsert_stages,
 )
 from openwrc.storage.transform_utils import (
@@ -163,6 +165,9 @@ class WrcEtlService:
         await self.etl_event_rally_stage_results(
             event_id=event_id, stage_ids=event_stage_ids, rally_ids=rally_ids
         )
+        await self.etl_event_stage_times(
+            event_id=event_id, stage_ids=event_stage_ids, rally_ids=rally_ids
+        )
         await self.etl_event_split_times(
             event_id=event_id, stage_ids=event_stage_ids, rally_ids=rally_ids
         )
@@ -188,6 +193,26 @@ class WrcEtlService:
                     api_response=stage_result,
                     rally_id=rally_id,
                     stage_id=stage_id,
+                )
+            await session.commit()
+
+    async def etl_event_stage_times(
+        self, event_id: int, stage_ids: list[int], rally_ids: list[int]
+    ) -> None:
+        futures = [
+            get_event_stage_times_with_context(
+                self._api, event_id=event_id, rally_id=rally_id, stage_id=stage_id
+            )
+            for rally_id in rally_ids
+            for stage_id in stage_ids
+        ]
+        stage_time_results = await asyncio.gather(*futures)
+        async with self._db.session() as session:
+            for stage_time_result, rally_id, stage_id in stage_time_results:
+                await upsert_stage_time_results(
+                    session=session,
+                    api_response=stage_time_result,
+                    rally_id=rally_id,
                 )
             await session.commit()
 

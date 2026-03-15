@@ -209,6 +209,5 @@ def map_api_split_time_to_db_model(
         entry_id=api_split_time.entry_id,
         start_date_time=api_split_time.start_date_time,
         split_date_time=api_split_time.split_date_time,
-        stage_time_duration_ms=api_split_time.stage_time_duration_ms,
         elapsed_duration_ms=api_split_time.elapsed_duration_ms,
     )
