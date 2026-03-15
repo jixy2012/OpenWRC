@@ -17,6 +17,12 @@ STAGE_SPLIT_POLLER_SLEEP = 30
 
 class LiveStreamService(BaseService):
 
+    def __init__(self):
+        super().__init__()
+        self._external_api_client = None
+        self._subscriber_registry = None
+        self._poll_task_registry = None
+
     @property
     def external_api_client(self):
         if not self._external_api_client:
@@ -36,7 +42,7 @@ class LiveStreamService(BaseService):
         if not self._poll_task_registry:
             self._poll_task_registry: defaultdict[
                 ChannelId, asyncio.Task[any] | None
-            ] = defaultdict(None)
+            ] = defaultdict(lambda: None)
         return self._poll_task_registry
 
     def _register_subscriber(self, channel_id: ChannelId, queue: asyncio.Queue):
@@ -62,28 +68,38 @@ class LiveStreamService(BaseService):
     ):
         raise NotImplementedError("do not support auto finding a live stage")
 
+    # TODO: polling split times alone does not capture stage finish times. A complete
+    # live stage feed requires also polling the stage times endpoint
+    # (/{event_id}/stages/{stage_id}/stagetimes.json) and merging the finish time as
+    # the final split. Consider a combined subscribe_stage method that runs both
+    # pollers concurrently and emits a unified event with splits + finish.
     async def _poll_split_point_data(self, channel_id: ChannelId):
         event_id, rally_id, stage_id = channel_id
+        print(f"[poller] started for channel {channel_id}")
         try:
             while True:
-                await asyncio.sleep(STAGE_SPLIT_POLLER_SLEEP)
-                # TODO: figure out if we need data transformation
-                split_point_results = (
-                    await self.external_api_client.get_rally_stage_split_time_results(
+                print(f"[poller] fetching split times for stage {stage_id}...")
+                try:
+                    split_point_results = await self.external_api_client.get_rally_stage_split_time_results(
                         event_id=event_id, rally_id=rally_id, stage_id=stage_id
                     )
-                )
-                for queue in self.subscriber_registry[channel_id]:
-
-                    queue.put_nowait(split_point_results)
+                    print(
+                        f"[poller] got response, broadcasting to {len(self.subscriber_registry[channel_id])} subscriber(s)"
+                    )
+                    for queue in self.subscriber_registry[channel_id]:
+                        queue.put_nowait(split_point_results)
+                except Exception as e:
+                    print(f"[poller] fetch error: {e}")
+                print(f"[poller] sleeping {STAGE_SPLIT_POLLER_SLEEP}s...")
+                await asyncio.sleep(STAGE_SPLIT_POLLER_SLEEP)
         except asyncio.CancelledError as e:
+            print(f"[poller] cancelled for channel {channel_id}")
             raise e
 
     async def _register_poll_task(self, channel_id: ChannelId):
         if self.poll_task_registry[channel_id]:
             return
-        task = self._poll_split_point_data(channel_id=channel_id)
-        await asyncio.create_task(task)
+        task = asyncio.create_task(self._poll_split_point_data(channel_id=channel_id))
         self.poll_task_registry[channel_id] = task
 
     async def subscribe(self, event_id: int, rally_id: int, stage_id: int):
