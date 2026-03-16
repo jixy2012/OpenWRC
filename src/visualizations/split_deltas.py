@@ -1,73 +1,46 @@
 """
-Stage split deltas to leader.
-
-Shows each driver's time gap to the stage leader at each split point.
+convert split deltas into df for visualization for WRC data.
 """
 
-import asyncio
-from collections import defaultdict
+import pandas as pd
 
-from openwrc.models.db.result import SplitTime
-from openwrc.services.session_service import WrcSession
+from openwrc.services.read_models import FlatSplitTimeRow
 
 
-def ms_to_mmss_tenths(ms: int | None) -> str | None:
-    if ms is None:
-        return None
-    total_tenths = ms // 100
-    minutes = total_tenths // (60 * 10)
-    seconds = (total_tenths // 10) % 60
-    tenths = total_tenths % 10
-    return f"{minutes:02d}:{seconds:02d}.{tenths}"
+def build_split_delta_df(rows: list[FlatSplitTimeRow]) -> pd.DataFrame:
+    """Convert flat split time rows into a DataFrame enriched with delta-to-leader columns.
 
+    Added columns:
+        split_index  — 1-based physical ordering of split points, derived from
+                       min elapsed time across entries (proxy for stage distance)
+        split_label  — "SP1", "SP2", ... labels for display
+        leader_ms    — fastest elapsed time at this split point across all entries
+        delta_ms     — elapsed_duration_ms minus leader_ms (0 for the leader)
 
-def build_delta_series(
-    split_times: list[SplitTime],
-) -> tuple[list[int], dict[int, list[int | None]]]:
-    """Return (ordered split_point_ids, {entry_id: [delta_to_leader per split]})."""
-    by_entry: dict[int, dict[int, int]] = defaultdict(dict)
-    split_ids: set[int] = set()
+    Returns an empty DataFrame if rows is empty.
+    """
+    if not rows:
+        return pd.DataFrame()
 
-    for row in split_times:
-        split_ids.add(row.split_point_id)
-        by_entry[row.entry_id][row.split_point_id] = row.elapsed_duration_ms
+    df = pd.DataFrame([r.model_dump() for r in rows])
 
-    ordered_splits = sorted(split_ids)
+    # Order splits by their minimum elapsed time to approximate physical position
+    split_order = (
+        df.groupby("split_point_id")["elapsed_duration_ms"]
+        .min()
+        .sort_values()
+        .reset_index()
+        .assign(split_index=lambda x: range(1, len(x) + 1))
+        .set_index("split_point_id")["split_index"]
+        .to_dict()
+    )
+    df["split_index"] = df["split_point_id"].map(split_order)
+    df["split_label"] = "SP" + df["split_index"].astype(str)
 
-    aligned: dict[int, list[int | None]] = {
-        entry_id: [by_split.get(s) for s in ordered_splits]
-        for entry_id, by_split in by_entry.items()
-    }
+    # Delta to split leader
+    df["leader_ms"] = df.groupby("split_point_id")["elapsed_duration_ms"].transform(
+        "min"
+    )
+    df["delta_ms"] = df["elapsed_duration_ms"] - df["leader_ms"]
 
-    min_by_split: list[int | None] = [
-        min((aligned[e][i] for e in aligned if aligned[e][i] is not None), default=None)
-        for i in range(len(ordered_splits))
-    ]
-
-    deltas: dict[int, list[int | None]] = {
-        entry_id: [
-            (
-                (ms - min_by_split[i])
-                if (ms is not None and min_by_split[i] is not None)
-                else None
-            )
-            for i, ms in enumerate(series)
-        ]
-        for entry_id, series in aligned.items()
-    }
-
-    return ordered_splits, deltas
-
-
-async def main():
-    session = await WrcSession.create(name="monte carlo", year=2026)
-    split_times = await session.split_times(stage_number=1)
-    split_ids, deltas = build_delta_series(split_times)
-    # TODO: chart with preferred library
-    for entry_id, series in deltas.items():
-        formatted = [ms_to_mmss_tenths(d) for d in series]
-        print(f"entry {entry_id}: {formatted}")
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+    return df.sort_values(["split_index", "delta_ms"])
