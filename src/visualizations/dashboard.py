@@ -95,6 +95,27 @@ _METRIC_OPTIONS: dict[str, str] = {
 _TIME_METRICS = {"diff_first_ms", "total_time_ms", "stage_time_ms"}
 
 
+def _class_driver_selectors(df: pd.DataFrame, key_prefix: str) -> tuple[str, list[str]]:
+    """Render class + driver multiselect controls, where driver list is scoped to class.
+
+    Returns (selected_class, selected_drivers).
+    """
+    classes = sorted(df["class_name"].dropna().unique())
+    selected_class = st.selectbox("Class", ["All"] + classes, key=f"{key_prefix}_class")
+    drivers_in_class = sorted(
+        df.loc[df["class_name"] == selected_class, "driver_name"].unique()
+        if selected_class != "All"
+        else df["driver_name"].unique()
+    )
+    selected_drivers = st.multiselect(
+        "Drivers",
+        drivers_in_class,
+        placeholder="All drivers",
+        key=f"{key_prefix}_drivers",
+    )
+    return selected_class, selected_drivers
+
+
 def _ordered_stage_codes(df: pd.DataFrame) -> list[str]:
     return (
         df[["stage_number", "stage_code"]]
@@ -149,11 +170,9 @@ with tab_standings:
     with ctrl:
         metric_label = st.selectbox("Metric", list(_METRIC_OPTIONS.keys()))
         metric_field = _METRIC_OPTIONS[metric_label]
-        selected_drivers = st.multiselect(
-            "Drivers", all_drivers, placeholder="All drivers"
+        selected_class, selected_drivers = _class_driver_selectors(
+            df_standings, "standings"
         )
-        classes = sorted(df_standings["class_name"].dropna().unique())
-        selected_class = st.selectbox("Class", ["All"] + classes)
         stage_range = st.select_slider(
             "Stage range",
             options=stage_order,
@@ -250,12 +269,8 @@ with tab_splits:
 
     with ctrl2:
         selected_stage_code = st.selectbox("Stage", stage_order)
-        selected_drivers_split = st.multiselect(
-            "Drivers", all_drivers, placeholder="All drivers", key="split_drivers"
-        )
-        split_classes = sorted(df_standings["class_name"].dropna().unique())
-        selected_split_class = st.selectbox(
-            "Class", ["All"] + split_classes, key="split_class"
+        selected_split_class, selected_drivers_split = _class_driver_selectors(
+            df_standings, "splits"
         )
 
     stage_id = int(
