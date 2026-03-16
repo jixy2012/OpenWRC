@@ -34,9 +34,7 @@ class StageTime(Base):
     took to complete that single stage, independent of cumulative rally totals.
 
     Source: /{event_id}/stages/{stage_id}/stagetimes.json
-    This is the same value as split_times.stage_time_duration_ms (which is
-    denormalized onto every split row for that entry), and equals
-    FlyingFinish controlTime - StageStart controlTime for the same entry.
+    This is the same value as FlyingFinish controlTime - StageStart controlTime for the same entry.
     """
 
     __tablename__ = "stage_times"
@@ -45,6 +43,7 @@ class StageTime(Base):
     stage_id: Mapped[int] = mapped_column(ForeignKey(Stage.stage_id), primary_key=True)
     entry_id: Mapped[int] = mapped_column(ForeignKey(Entry.entry_id), primary_key=True)
 
+    # Denormalized for query efficiency
     rally_id: Mapped[int] = mapped_column(ForeignKey(RallyMetadata.rally_id))
 
     # Time from stage start to flying finish for this entry, in ms.
@@ -140,6 +139,7 @@ class SplitTime(Base):
 
     __tablename__ = "split_times"
 
+    # Primary key
     split_point_time_id: Mapped[int] = mapped_column(primary_key=True)
 
     # Opaque ID for the split point. No SplitPoint table exists yet so there is
