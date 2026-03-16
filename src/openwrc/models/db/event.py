@@ -6,11 +6,23 @@ from .base import Base
 from .entities import Country, Group, Manufacturer, Entrant, Person
 
 
+class Season(Base):
+    __tablename__ = "seasons"
+
+    season_id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(100))
+    year: Mapped[int]
+
+
 class EventMetadata(Base):
     __tablename__ = "events"
 
     # Primary key
     event_id: Mapped[int] = mapped_column(primary_key=True)
+
+    # Season context
+    season_id: Mapped[int] = mapped_column(ForeignKey(Season.season_id))
+    round_order: Mapped[int]
 
     # Basic event info
     name: Mapped[str] = mapped_column(String(200))

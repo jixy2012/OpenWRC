@@ -11,9 +11,11 @@ from openwrc.models.external_api import (
     ApiStageTimeResults,
     ApiShakedownTimeResults,
     ApiStartList,
+    ApiSeason,
+    ApiSeasonDetail,
 )
 
-URL_BASE = "https://p-p.redbull.com/rb-wrccom-lintegration-yv-prod/api/events"
+URL_BASE = "https://p-p.redbull.com/rb-wrccom-lintegration-yv-prod/api"
 T = TypeVar("T", bound=BaseModel)
 
 
@@ -46,6 +48,32 @@ class WrcApiClient:
 
         return TypeAdapter[T](model).validate_python(data) if model else data
 
+    async def get_seasons(self) -> list[ApiSeason]:
+        """
+        example: /seasons.json
+
+        Returns all seasons available in the timing system, across all championships
+        and years. Filter by name for WRC-only seasons.
+        """
+        return await self._get("/seasons.json", model=list[ApiSeason])
+
+    async def get_season_detail(self, season_id: int) -> ApiSeasonDetail:
+        """
+        example: /season-detail.json?seasonId=34
+
+        Returns the full season catalog: all rounds with basic event info (IDs, dates,
+        slugs, surfaces). Use this to enumerate event IDs before fetching full metadata
+        per event via get_event_metadata().
+
+        Args:
+            season_id: from get_seasons()
+        """
+        return await self._get(
+            "/season-detail.json",
+            params={"seasonId": str(season_id)},
+            model=ApiSeasonDetail,
+        )
+
     async def get_event_metadata(self, event_id: int) -> ApiEventMetadata:
         """
         example: /635.json
@@ -56,12 +84,12 @@ class WrcApiClient:
         Returns:
             EventMetadata object
         """
-        return await self._get(f"/{event_id}.json", model=ApiEventMetadata)
+        return await self._get(f"/events/{event_id}.json", model=ApiEventMetadata)
 
     async def get_event_itineraries(
         self, event_id: int, itinerary_id: int
     ) -> ApiItinerary:
-        """example: /635/itineraries/1321.json
+        """example: /events/635/itineraries/1321.json
 
         Args:
             event_id (int): identifier of the event (NOT rally)
@@ -71,7 +99,7 @@ class WrcApiClient:
             dict
         """
         return await self._get(
-            f"/{event_id}/itineraries/{itinerary_id}.json", model=ApiItinerary
+            f"/events/{event_id}/itineraries/{itinerary_id}.json", model=ApiItinerary
         )
 
     async def get_rally_entries(self, event_id: int, rally_id: int) -> ApiRallyEntries:
@@ -85,7 +113,7 @@ class WrcApiClient:
             dict
         """
         return await self._get(
-            f"/{event_id}/rallies/{rally_id}/entries.json", model=ApiRallyEntries
+            f"/events/{event_id}/rallies/{rally_id}/entries.json", model=ApiRallyEntries
         )
 
     async def get_rally_results(self, event_id: int, rally_id: int) -> ApiRallyResults:
@@ -99,7 +127,7 @@ class WrcApiClient:
             dict
         """
         return await self._get(
-            f"/{event_id}/rallies/{rally_id}/results.json", model=ApiRallyResults
+            f"/events/{event_id}/rallies/{rally_id}/results.json", model=ApiRallyResults
         )
 
     async def get_event_stage_results(
@@ -116,7 +144,7 @@ class WrcApiClient:
             dict
         """
         return await self._get(
-            f"/{event_id}/stages/{stage_id}/results.json",
+            f"/events/{event_id}/stages/{stage_id}/results.json",
             params={"rallyId": rally_id},
             model=ApiStageResults,
         )
@@ -135,7 +163,7 @@ class WrcApiClient:
             StageTimeResults
         """
         return await self._get(
-            f"/{event_id}/stages/{stage_id}/stagetimes.json",
+            f"/events/{event_id}/stages/{stage_id}/stagetimes.json",
             params={"rallyId": rally_id},
             model=ApiStageTimeResults,
         )
@@ -156,7 +184,7 @@ class WrcApiClient:
         """
 
         return await self._get(
-            f"/{event_id}/shakedowntimes.json",
+            f"/events/{event_id}/shakedowntimes.json",
             params={"shakedownNumber": shakedown_number},
             model=ApiShakedownTimeResults,
         )
@@ -179,7 +207,7 @@ class WrcApiClient:
             SplitTimeResults: _description_
         """
         return await self._get(
-            f"/{event_id}/stages/{stage_id}/splittimes.json",
+            f"/events/{event_id}/stages/{stage_id}/splittimes.json",
             params={"rallyId": rally_id},
             model=ApiSplitTimeResults,
         )
@@ -197,6 +225,6 @@ class WrcApiClient:
             StartList: _description_
         """
         return await self._get(
-            f"/{event_id}/startLists/{start_list_id}.json",
+            f"/events/{event_id}/startLists/{start_list_id}.json",
             model=ApiStartList,
         )

@@ -8,7 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from openwrc.models.db.base import Base
 from openwrc.models.db.entities import Country, Entrant, Group, Manufacturer
-from openwrc.models.db.event import EntryEventClass, EventClass, RallyEventClass
+from openwrc.models.db.event import (
+    EntryEventClass,
+    EventClass,
+    RallyEventClass,
+)
 from openwrc.models.db.itinerary import StartList, StartListPublishStatus
 from openwrc.models.external_api import (
     ApiCoDriver,
@@ -17,7 +21,6 @@ from openwrc.models.external_api import (
     ApiDriver,
     ApiEntrant,
     ApiEventClass,
-    ApiEventMetadata,
     ApiGroup,
     ApiItinerary,
     ApiItineraryLeg,
@@ -25,6 +28,8 @@ from openwrc.models.external_api import (
     ApiManufacturer,
     ApiRallyEntries,
     ApiRallyMetadata,
+    ApiSeason,
+    ApiSeasonRound,
     ApiShakedownTimeResults,
     ApiSplitTimeResults,
     ApiStage,
@@ -38,11 +43,12 @@ from openwrc.storage.mappers import (
     map_api_control_to_db_model,
     map_api_driver_to_db_model,
     map_api_entry_to_db_model,
-    map_api_event_to_db_model,
     map_api_itinerary_leg_to_db_model,
     map_api_itinerary_section_to_db_model,
     map_api_itinerary_to_db_model,
     map_api_rally_to_db_model,
+    map_api_season_round_to_event_db_model,
+    map_api_season_to_db_model,
     map_api_split_time_to_db_model,
     map_api_stage_result_to_db_model,
     map_api_stage_time_to_db_model,
@@ -125,6 +131,20 @@ async def upsert_entrants(session: AsyncSession, api_response: list[ApiEntrant])
         )
 
 
+async def upsert_season(session: AsyncSession, api_season: ApiSeason) -> None:
+    await upsert_instance(
+        session=session, instance=map_api_season_to_db_model(api_season)
+    )
+
+
+async def upsert_event_from_catalog_round(
+    session: AsyncSession, round: ApiSeasonRound
+) -> None:
+    await upsert_instance(
+        session=session, instance=map_api_season_round_to_event_db_model(round)
+    )
+
+
 # section ApiEventMetadata
 async def upsert_event_classes(
     session: AsyncSession, api_response: list[ApiEventClass]
@@ -146,22 +166,6 @@ async def upsert_rally_event_classes(
                 event_class_id=event_class_id,
             ),
         )
-
-
-async def upsert_event_metadata(session: AsyncSession, api_response: ApiEventMetadata):
-    """upsert event metadata info into 'events' table
-
-    Args:
-        session (AsyncSession): _description_
-        api_response (ApiEventMetadata): _description_
-
-    Returns:
-        bool: _description_
-    """
-
-    event = map_api_event_to_db_model(api_event=api_response)
-    # upsert event first for fk consistency
-    await upsert_instance(session=session, instance=event)
 
 
 async def upsert_rally_metadata(
