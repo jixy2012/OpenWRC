@@ -1,8 +1,57 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo
 from pydantic import ConfigDict, Field, model_validator
 from pydantic_extra_types.timezone_name import TimeZoneName
 from .base_external_model import WrcExternalApiBaseModel
+
+
+class ApiSeason(WrcExternalApiBaseModel):
+    season_id: int
+    name: str = Field(description="Championship name e.g. 'World Rally Championship'")
+    year: int
+
+
+class ApiSeasonEventInfo(WrcExternalApiBaseModel):
+    """
+    Lightweight event summary returned inside season-detail rounds.
+    Subset of ApiEventMetadata — no rally or class IDs.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    event_id: int
+    name: str
+    slug: str
+    country: "ApiCountryMetadata"
+    location: str
+    start_date: date
+    finish_date: date
+    time_zone_id: TimeZoneName
+    time_zone_name: str
+    surfaces: str
+    shakedown_count: int
+
+
+class ApiSeasonRound(WrcExternalApiBaseModel):
+    season_id: int
+    event_id: int
+    order: int = Field(description="Round number within the season")
+    event: ApiSeasonEventInfo
+
+
+class ApiSeasonDetail(WrcExternalApiBaseModel):
+    """
+    Full season catalog returned by /api/season-detail.json?seasonId={id}.
+    Contains all rounds with basic event info — use to enumerate event IDs
+    before fetching full ApiEventMetadata per event.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    season_id: int
+    name: str
+    year: int
+    season_rounds: list[ApiSeasonRound]
 
 
 class ApiEventClass(WrcExternalApiBaseModel):

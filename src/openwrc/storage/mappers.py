@@ -1,5 +1,13 @@
+from datetime import datetime, timezone
+
 from openwrc.models.db.entities import CoDriver, Driver, Person, PersonType
-from openwrc.models.db.event import Entry, EventMetadata, RallyMetadata
+from openwrc.models.db.event import (
+    Entry,
+    EventMetadata,
+    EventMetadataDetails,
+    RallyMetadata,
+    Season,
+)
 from openwrc.models.db.itinerary import (
     Control,
     Itinerary,
@@ -13,34 +21,69 @@ from openwrc.models.external_api import (
     ApiDriver,
     ApiCoDriver,
     ApiEntry,
+    ApiEventMetadata,
     ApiItinerary,
     ApiItineraryLeg,
     ApiItinerarySection,
     ApiPerson,
     ApiRallyMetadata,
     ApiResultEntry,
+    ApiSeason,
+    ApiSeasonRound,
     ApiSplitTimeEntry,
     ApiStage,
     ApiControl,
     ApiStageTimeEntry,
     ApiStartList,
-    ApiEventMetadata,
 )
 
 
-def map_api_event_to_db_model(api_event: ApiEventMetadata) -> EventMetadata:
+def map_api_season_to_db_model(api_season: ApiSeason) -> Season:
+    return Season(
+        season_id=api_season.season_id,
+        name=api_season.name,
+        year=api_season.year,
+    )
+
+
+def map_api_event_metadata_to_details(api: ApiEventMetadata) -> EventMetadataDetails:
+    return EventMetadataDetails(
+        name=api.name,
+        location=api.location,
+        slug=api.slug,
+        surfaces=api.surfaces,
+        start_date=api.start_date,
+        finish_date=api.finish_date,
+        time_zone_id=str(api.time_zone_id),
+        time_zone_name=api.time_zone_name,
+        country_id=api.country_id,
+        shakedown_count=api.shakedown_count,
+    )
+
+
+def map_api_season_round_to_event_db_model(round: ApiSeasonRound) -> EventMetadata:
+    e = round.event
+    # season-detail dates are date-only (no time); store as midnight UTC
+    start_dt = datetime(
+        e.start_date.year, e.start_date.month, e.start_date.day, tzinfo=timezone.utc
+    )
+    finish_dt = datetime(
+        e.finish_date.year, e.finish_date.month, e.finish_date.day, tzinfo=timezone.utc
+    )
     return EventMetadata(
-        event_id=api_event.event_id,
-        name=api_event.name,
-        location=api_event.location,
-        slug=api_event.slug,
-        surfaces=api_event.surfaces,
-        start_date=api_event.start_date,
-        finish_date=api_event.finish_date,
-        time_zone_id=api_event.time_zone_id,
-        time_zone_name=api_event.time_zone_name,
-        country_id=api_event.country_id,
-        shakedown_count=api_event.shakedown_count,
+        event_id=e.event_id,
+        season_id=round.season_id,
+        round_order=round.order,
+        name=e.name,
+        location=e.location,
+        slug=e.slug,
+        surfaces=e.surfaces,
+        start_date=start_dt,
+        finish_date=finish_dt,
+        time_zone_id=e.time_zone_id,
+        time_zone_name=e.time_zone_name,
+        country_id=e.country.country_id,
+        shakedown_count=e.shakedown_count,
     )
 
 

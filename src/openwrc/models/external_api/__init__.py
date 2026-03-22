@@ -4,6 +4,10 @@ External API models with Api prefix for clarity.
 
 # Event models
 from .event_models import (
+    ApiSeason,
+    ApiSeasonDetail,
+    ApiSeasonRound,
+    ApiSeasonEventInfo,
     ApiEventMetadata,
     ApiRallyMetadata,
     ApiEventClass,
@@ -48,6 +52,10 @@ from .result_models import (
 
 __all__ = [
     # Event
+    "ApiSeason",
+    "ApiSeasonDetail",
+    "ApiSeasonRound",
+    "ApiSeasonEventInfo",
     "ApiEventMetadata",
     "ApiRallyMetadata",
     "ApiEventClass",

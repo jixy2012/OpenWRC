@@ -31,14 +31,16 @@ from openwrc.storage.load_utils import (
     upsert_entries,
     upsert_entry_event_classes,
     upsert_event_classes,
+    upsert_event_from_catalog_round,
     upsert_event_itinerary,
-    upsert_event_metadata,
+    upsert_event_metadata_details,
     upsert_groups,
     upsert_itinerary_legs,
     upsert_itinerary_sections,
     upsert_manufacturers,
     upsert_rally_event_classes,
     upsert_rally_metadata,
+    upsert_season,
     upsert_split_time_results,
     upsert_stage_results,
     upsert_stage_time_results,
@@ -60,6 +62,27 @@ class WrcEtlService:
     ) -> None:
         self._db = db or WrcDatabase()
         self._api = api_client or WrcApiClient()
+
+    async def etl_season_catalog(
+        self, championship: str = "World Rally Championship"
+    ) -> None:
+        """
+        Populate Season and EventMetadata (catalog-level fields only) for all seasons
+        matching the given championship name. Run this before etl_historical_event.
+        """
+        seasons = await self._api.get_seasons()
+        wrc_seasons = [s for s in seasons if s.name == championship]
+
+        for season in wrc_seasons:
+            async with self._db.session() as session:
+                await upsert_season(session=session, api_season=season)
+                await session.commit()
+
+            detail = await self._api.get_season_detail(season_id=season.season_id)
+            async with self._db.session() as session:
+                for round in detail.season_rounds:
+                    await upsert_event_from_catalog_round(session=session, round=round)
+                await session.commit()
 
     async def etl_historical_event(self, event_id: int) -> None:
         await self.etl_event_info(event_id=event_id)
@@ -117,7 +140,11 @@ class WrcEtlService:
             api_response=event_metadata
         )
         async with self._db.session() as session:
-            await upsert_event_metadata(session=session, api_response=event_metadata)
+            await upsert_event_metadata_details(
+                session=session,
+                event_id=event_metadata.event_id,
+                event_metadata=event_metadata,
+            )
             await upsert_rally_metadata(session=session, api_response=rallies)
             await upsert_event_classes(session=session, api_response=event_classes)
             for rally_id, class_ids in rally_to_class_ids.items():

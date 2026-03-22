@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import TypedDict
 from sqlalchemy import String, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -6,11 +7,42 @@ from .base import Base
 from .entities import Country, Group, Manufacturer, Entrant, Person
 
 
+class EventMetadataDetails(TypedDict):
+    """
+    Subset of EventMetadata columns written by the full /events/{id}.json endpoint.
+    season_id and round_order are intentionally excluded — they are catalog-only
+    fields populated by etl_season_catalog and must never be overwritten.
+    """
+
+    name: str
+    location: str
+    slug: str
+    surfaces: str
+    start_date: datetime
+    finish_date: datetime
+    time_zone_id: str
+    time_zone_name: str
+    country_id: int
+    shakedown_count: int
+
+
+class Season(Base):
+    __tablename__ = "seasons"
+
+    season_id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(100))
+    year: Mapped[int]
+
+
 class EventMetadata(Base):
     __tablename__ = "events"
 
     # Primary key
     event_id: Mapped[int] = mapped_column(primary_key=True)
+
+    # Season context
+    season_id: Mapped[int] = mapped_column(ForeignKey(Season.season_id))
+    round_order: Mapped[int]
 
     # Basic event info
     name: Mapped[str] = mapped_column(String(200))
