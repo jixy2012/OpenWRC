@@ -4,6 +4,7 @@ Stateless helper functions that transform API models to DB models and store them
 """
 
 from typing import TypeVar, Type
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from openwrc.models.db.base import Base
@@ -11,6 +12,7 @@ from openwrc.models.db.entities import Country, Entrant, Group, Manufacturer
 from openwrc.models.db.event import (
     EntryEventClass,
     EventClass,
+    EventMetadata,
     RallyEventClass,
 )
 from openwrc.models.db.itinerary import StartList, StartListPublishStatus
@@ -21,6 +23,7 @@ from openwrc.models.external_api import (
     ApiDriver,
     ApiEntrant,
     ApiEventClass,
+    ApiEventMetadata,
     ApiGroup,
     ApiItinerary,
     ApiItineraryLeg,
@@ -43,6 +46,7 @@ from openwrc.storage.mappers import (
     map_api_control_to_db_model,
     map_api_driver_to_db_model,
     map_api_entry_to_db_model,
+    map_api_event_metadata_to_details,
     map_api_itinerary_leg_to_db_model,
     map_api_itinerary_section_to_db_model,
     map_api_itinerary_to_db_model,
@@ -142,6 +146,16 @@ async def upsert_event_from_catalog_round(
 ) -> None:
     await upsert_instance(
         session=session, instance=map_api_season_round_to_event_db_model(round)
+    )
+
+
+async def upsert_event_metadata_details(
+    session: AsyncSession, event_id: int, event_metadata: ApiEventMetadata
+) -> None:
+    await session.execute(
+        update(EventMetadata)
+        .where(EventMetadata.event_id == event_id)
+        .values(**map_api_event_metadata_to_details(event_metadata))
     )
 
 

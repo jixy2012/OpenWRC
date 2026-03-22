@@ -1,7 +1,13 @@
 from datetime import datetime, timezone
 
 from openwrc.models.db.entities import CoDriver, Driver, Person, PersonType
-from openwrc.models.db.event import Entry, EventMetadata, RallyMetadata, Season
+from openwrc.models.db.event import (
+    Entry,
+    EventMetadata,
+    EventMetadataDetails,
+    RallyMetadata,
+    Season,
+)
 from openwrc.models.db.itinerary import (
     Control,
     Itinerary,
@@ -15,6 +21,7 @@ from openwrc.models.external_api import (
     ApiDriver,
     ApiCoDriver,
     ApiEntry,
+    ApiEventMetadata,
     ApiItinerary,
     ApiItineraryLeg,
     ApiItinerarySection,
@@ -36,6 +43,21 @@ def map_api_season_to_db_model(api_season: ApiSeason) -> Season:
         season_id=api_season.season_id,
         name=api_season.name,
         year=api_season.year,
+    )
+
+
+def map_api_event_metadata_to_details(api: ApiEventMetadata) -> EventMetadataDetails:
+    return EventMetadataDetails(
+        name=api.name,
+        location=api.location,
+        slug=api.slug,
+        surfaces=api.surfaces,
+        start_date=api.start_date,
+        finish_date=api.finish_date,
+        time_zone_id=str(api.time_zone_id),
+        time_zone_name=api.time_zone_name,
+        country_id=api.country_id,
+        shakedown_count=api.shakedown_count,
     )
 
 

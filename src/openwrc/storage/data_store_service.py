@@ -33,6 +33,7 @@ from openwrc.storage.load_utils import (
     upsert_event_classes,
     upsert_event_from_catalog_round,
     upsert_event_itinerary,
+    upsert_event_metadata_details,
     upsert_groups,
     upsert_itinerary_legs,
     upsert_itinerary_sections,
@@ -139,6 +140,11 @@ class WrcEtlService:
             api_response=event_metadata
         )
         async with self._db.session() as session:
+            await upsert_event_metadata_details(
+                session=session,
+                event_id=event_metadata.event_id,
+                event_metadata=event_metadata,
+            )
             await upsert_rally_metadata(session=session, api_response=rallies)
             await upsert_event_classes(session=session, api_response=event_classes)
             for rally_id, class_ids in rally_to_class_ids.items():
