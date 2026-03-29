@@ -56,7 +56,9 @@ class StageTime(Base):
     # Gap to the entry ranked one position ahead on this stage, in ms.
     diff_prev_ms: Mapped[int | None]
 
-    status: Mapped[StageStatus] = mapped_column(Enum(StageStatus))
+    status: Mapped[StageStatus] = mapped_column(
+        Enum(StageStatus, values_callable=lambda e: [m.value for m in e])
+    )
     source: Mapped[str] = mapped_column(String(50))
 
     # Indexes for common queries

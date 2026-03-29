@@ -1,6 +1,6 @@
 import enum
 from datetime import datetime
-from sqlalchemy import String, ForeignKey
+from sqlalchemy import Index, String, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
@@ -25,6 +25,17 @@ class EtlType(str, enum.Enum):
 
 class EtlRunLog(Base):
     __tablename__ = "etl_run_log"
+
+    __table_args__ = (
+        # Covers the _latest_run lookup: filter on (etl_type, event_id, completed_at IS NOT NULL)
+        # ordered by completed_at DESC. SQLite uses the index for equality + range scans.
+        Index(
+            "ix_etl_run_log_type_event_completed",
+            "etl_type",
+            "event_id",
+            "completed_at",
+        ),
+    )
 
     # init=False fields first — excluded from __init__ so they don't affect ordering
     run_id: Mapped[int] = mapped_column(

@@ -7,9 +7,9 @@ from openwrc.models.db.entities import Person
 from openwrc.models.db.event import Entry, EventMetadata
 from openwrc.models.db.itinerary import Stage
 from openwrc.models.db.result import RallyStanding
+from openwrc.services.data_service import WrcDataService
 from openwrc.services.read_models import FlatSplitTimeRow, FlatStandingRow
 from openwrc.storage.database import WrcDatabase
-from openwrc.storage.query_service import WrcQueryService
 from openwrc.utils.datetime_utils import event_tz
 from openwrc.utils.entity_to_id_mapping_utils import (
     map_car_identifier_to_entry_id,
@@ -42,7 +42,7 @@ class WrcSession:
         self,
         event_id: int,
         rally_id: int,
-        query_service: WrcQueryService,
+        data_svc: WrcDataService,
         event_start_date: date,
         event_finish_date: date,
         event_timezone: ZoneInfo,
@@ -52,7 +52,7 @@ class WrcSession:
         self.event_start_date = event_start_date
         self.event_finish_date = event_finish_date
         self.event_timezone = event_timezone
-        self._qs = query_service
+        self._data_svc = data_svc
         self._driver_name_map: dict[str, int] | None = None
         self._stage_code_map: dict[str, int] | None = None
         self._car_identifier_map: dict[str, int] | None = None
@@ -60,16 +60,14 @@ class WrcSession:
     @classmethod
     async def list_available_years(cls, db: WrcDatabase | None = None) -> list[int]:
         """Return distinct years for which events are stored in the local DB."""
-        qs = WrcQueryService(db or WrcDatabase())
-        return await qs.get_available_years()
+        return await WrcDataService(db=db).get_available_years()
 
     @classmethod
     async def list_events_for_year(
         cls, year: int, db: WrcDatabase | None = None
     ) -> list[EventMetadata]:
         """Return all events stored for a given year, ordered by start date."""
-        qs = WrcQueryService(db or WrcDatabase())
-        return await qs.get_events_for_year(year=year)
+        return await WrcDataService(db=db).get_events_for_year(year=year)
 
     @classmethod
     async def create(
@@ -81,63 +79,55 @@ class WrcSession:
         rally_id: int | None = None,
         db: WrcDatabase | None = None,
     ) -> "WrcSession":
-        qs = WrcQueryService(db or WrcDatabase())
-
         if event_id is None and name is None:
             raise SessionInputValidationException(
                 message="Provide either event_id or name to start a session."
             )
 
-        if event_id is None:
-            event = await qs.get_event_by_name(name=name, year=year)
-            if event is None:
-                detail = f"year={year}" if year else "no year filter"
-                raise SessionInputValidationException(
-                    message=f"No event found matching name='{name}' ({detail})."
-                )
-        else:
-            event = await qs.get_event_by_id(event_id=event_id)
-            if event is None:
+        data_svc = WrcDataService(db=db)
+        event = await data_svc.resolve_event(event_id=event_id, name=name, year=year)
+
+        if event is None:
+            if event_id is not None:
                 raise SessionInputValidationException(
                     message=f"No event found with event_id={event_id}."
                 )
-
-        event_id = event.event_id
-        event_start_date = event.start_date.date()
-        event_finish_date = event.finish_date.date()
-        event_timezone = event_tz(event.time_zone_id)
+            detail = f"year={year}" if year else "no year filter"
+            raise SessionInputValidationException(
+                message=f"No event found matching name='{name}' ({detail})."
+            )
 
         resolved_rally_id: int
         if rally_id is not None:
             resolved_rally_id = rally_id
         else:
-            rally = await qs.get_default_rally_for_event(event_id=event_id)
+            rally = await data_svc.get_default_rally_for_event(event_id=event.event_id)
             if rally is None:
                 raise SessionInputValidationException(
-                    message=f"No rally found for event_id={event_id}."
+                    message=f"No rally found for event_id={event.event_id}."
                 )
             resolved_rally_id = rally.rally_id
 
         return cls(
-            event_id=event_id,
+            event_id=event.event_id,
             rally_id=resolved_rally_id,
-            query_service=qs,
-            event_start_date=event_start_date,
-            event_finish_date=event_finish_date,
-            event_timezone=event_timezone,
+            data_svc=data_svc,
+            event_start_date=event.start_date.date(),
+            event_finish_date=event.finish_date.date(),
+            event_timezone=event_tz(event.time_zone_id),
         )
 
     async def entries(self) -> list[Entry]:
         """Return all entries for this rally."""
-        return await self._qs.get_rally_entries(rally_id=self.rally_id)
+        return await self._data_svc.get_rally_entries(rally_id=self.rally_id)
 
     async def stages(self) -> list[Stage]:
         """Return all stages for this event, ordered by stage number."""
-        return await self._qs.get_stages_for_event(event_id=self.event_id)
+        return await self._data_svc.get_stages_for_event(event_id=self.event_id)
 
     async def get_rally_drivers(self) -> list[Person]:
         """Return Person rows for all drivers entered in this rally."""
-        return await self._qs.get_rally_drivers(rally_id=self.rally_id)
+        return await self._data_svc.get_rally_drivers(rally_id=self.rally_id)
 
     async def get_driver_name_to_entry_id(self) -> dict[str, int]:
         """Return a case-insensitive map from driver name variants to entry_id.
@@ -213,10 +203,11 @@ class WrcSession:
     ) -> list[FlatStandingRow]:
         """Return denormalized standings rows with driver/manufacturer/class identity baked in.
 
+        Ensures timing data is fresh before querying.
         Optionally filter to a specific stage (by id or number) and/or a subset of entries.
         """
         if stage_number is not None:
-            stage = await self._qs.get_stage_by_number(
+            stage = await self._data_svc.get_stage_by_number(
                 event_id=self.event_id, number=stage_number
             )
             if stage is None:
@@ -224,8 +215,11 @@ class WrcSession:
                     message=f"No stage found with number={stage_number} in event_id={self.event_id}."
                 )
             stage_id = stage.stage_id
-        return await self._qs.get_flat_standings(
-            rally_id=self.rally_id, stage_id=stage_id, entry_ids=entry_ids
+        return await self._data_svc.get_flat_standings(
+            event_id=self.event_id,
+            rally_id=self.rally_id,
+            stage_id=stage_id,
+            entry_ids=entry_ids,
         )
 
     async def flat_split_times(
@@ -236,6 +230,7 @@ class WrcSession:
     ) -> list[FlatSplitTimeRow]:
         """Return denormalized split time rows with driver/manufacturer identity baked in.
 
+        Ensures timing data is fresh before querying.
         Requires either stage_id or stage_number.
         """
         if stage_id is None:
@@ -243,7 +238,7 @@ class WrcSession:
                 raise SessionInputValidationException(
                     message="Provide either stage_id or stage_number."
                 )
-            stage = await self._qs.get_stage_by_number(
+            stage = await self._data_svc.get_stage_by_number(
                 event_id=self.event_id, number=stage_number
             )
             if stage is None:
@@ -251,6 +246,9 @@ class WrcSession:
                     message=f"No stage found with number={stage_number} in event_id={self.event_id}."
                 )
             stage_id = stage.stage_id
-        return await self._qs.get_flat_split_times(
-            rally_id=self.rally_id, stage_id=stage_id, entry_ids=entry_ids
+        return await self._data_svc.get_flat_split_times(
+            event_id=self.event_id,
+            rally_id=self.rally_id,
+            stage_id=stage_id,
+            entry_ids=entry_ids,
         )

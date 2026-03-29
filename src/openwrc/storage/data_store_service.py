@@ -125,9 +125,9 @@ class WrcEtlService:
         await self.etl_event_info(event_id=event_id)
         await self.etl_event_timings(event_id=event_id)
 
-    async def etl_event_info(self, event_id: int) -> None:
+    async def etl_event_info(self, event_id: int, ttl: timedelta | None = None) -> None:
         event_metadata = await self._api.get_event_metadata(event_id=event_id)
-        await self.etl_event_metadata(event_metadata=event_metadata)
+        await self.etl_event_metadata(event_metadata=event_metadata, ttl=ttl)
 
         rally_ids = get_rally_ids(event_metadata=event_metadata)
         rally_ids_to_itinerary_ids = get_rally_id_to_itinerary_id(
@@ -138,13 +138,15 @@ class WrcEtlService:
             itinerary = await self._api.get_event_itineraries(
                 event_id=event_id, itinerary_id=itinerary_id
             )
-            await self.etl_itinerary(itinerary=itinerary, rally_id=rally_id)
+            await self.etl_itinerary(itinerary=itinerary, rally_id=rally_id, ttl=ttl)
 
         for rally_id in rally_ids:
             entries = await self._api.get_rally_entries(
                 event_id=event_id, rally_id=rally_id
             )
-            await self.etl_event_entries(api_entries=entries, rally_id=rally_id)
+            await self.etl_event_entries(
+                api_entries=entries, rally_id=rally_id, ttl=ttl
+            )
 
     async def etl_itinerary(
         self, itinerary: ApiItinerary, rally_id: int, ttl: timedelta | None = None
@@ -204,7 +206,7 @@ class WrcEtlService:
         self, api_entries: ApiRallyEntries, rally_id: int, ttl: timedelta | None = None
     ) -> None:
         async with self._etl_run(
-            EtlType.ENTRIES, event_id=api_entries.event_id, ttl=ttl
+            EtlType.ENTRIES, event_id=api_entries[0].event_id, ttl=ttl
         ):
             (
                 countries,
@@ -233,20 +235,22 @@ class WrcEtlService:
                 )
                 await session.commit()
 
-    async def etl_event_timings(self, event_id: int) -> None:
+    async def etl_event_timings(
+        self, event_id: int, ttl: timedelta | None = None
+    ) -> None:
         event_stages = await self._get_event_stages(event_id=event_id)
         event_stage_ids = [stage.stage_id for stage in event_stages]
         event_rallies = await self._get_event_rallies(event_id=event_id)
         rally_ids = [rally.rally_id for rally in event_rallies]
 
         await self.etl_event_rally_stage_results(
-            event_id=event_id, stage_ids=event_stage_ids, rally_ids=rally_ids
+            event_id=event_id, stage_ids=event_stage_ids, rally_ids=rally_ids, ttl=ttl
         )
         await self.etl_event_stage_times(
-            event_id=event_id, stage_ids=event_stage_ids, rally_ids=rally_ids
+            event_id=event_id, stage_ids=event_stage_ids, rally_ids=rally_ids, ttl=ttl
         )
         await self.etl_event_split_times(
-            event_id=event_id, stage_ids=event_stage_ids, rally_ids=rally_ids
+            event_id=event_id, stage_ids=event_stage_ids, rally_ids=rally_ids, ttl=ttl
         )
 
     async def etl_event_rally_stage_results(
