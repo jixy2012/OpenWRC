@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+import openwrc.models.db  # noqa: F401 — registers all model tables with Base.metadata
 from openwrc.models.db.base import Base
 from openwrc.models.db.views import create_views
 
