@@ -13,7 +13,9 @@ class StageStatus(PyEnum):
 
     COMPLETED = "Completed"
     RETIRED = "Retired"
-    DID_NOT_START = "DidNotStart"
+    DNF = "DNF"
+    RUNNING = "Running"
+    DID_NOT_START = "DNS"
     DISQUALIFIED = "Disqualified"
     EXCLUDED = "Excluded"
 
